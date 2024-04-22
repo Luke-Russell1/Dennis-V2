@@ -1,0 +1,587 @@
+{
+	"textures": [
+		{
+			"image": "soups.png",
+			"format": "RGBA8888",
+			"size": {
+				"w": 119,
+				"h": 309
+			},
+			"scale": 3,
+			"frames": [
+				{
+					"filename": "onion-pot-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 38
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 38
+					},
+					"frame": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 38
+					}
+				},
+				{
+					"filename": "onion-tomato-pot1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 38
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 38
+					},
+					"frame": {
+						"x": 45,
+						"y": 0,
+						"w": 45,
+						"h": 38
+					}
+				},
+				{
+					"filename": "onion-dish-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "onion-dish-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 29,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "tomato-onion-pot-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 38
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 38
+					},
+					"frame": {
+						"x": 0,
+						"y": 38,
+						"w": 45,
+						"h": 38
+					}
+				},
+				{
+					"filename": "tomato-pot-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 38
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 38
+					},
+					"frame": {
+						"x": 45,
+						"y": 38,
+						"w": 45,
+						"h": 38
+					}
+				},
+				{
+					"filename": "onion-dish-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 58,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "onion-pot-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 35
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 35
+					},
+					"frame": {
+						"x": 0,
+						"y": 76,
+						"w": 45,
+						"h": 35
+					}
+				},
+				{
+					"filename": "onion-pot-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 35
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 35
+					},
+					"frame": {
+						"x": 45,
+						"y": 76,
+						"w": 45,
+						"h": 35
+					}
+				},
+				{
+					"filename": "tomato-dish-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 87,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "tomato-onion-pot-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 35
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 35
+					},
+					"frame": {
+						"x": 0,
+						"y": 111,
+						"w": 45,
+						"h": 35
+					}
+				},
+				{
+					"filename": "tomato-pot-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 35
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 35
+					},
+					"frame": {
+						"x": 45,
+						"y": 111,
+						"w": 45,
+						"h": 35
+					}
+				},
+				{
+					"filename": "tomato-dish-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 116,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "tomato-dish-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 145,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "tomato-pot-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 35
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 35
+					},
+					"frame": {
+						"x": 0,
+						"y": 146,
+						"w": 45,
+						"h": 35
+					}
+				},
+				{
+					"filename": "1-onion-2-tomato.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 45,
+						"y": 146,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "tomato-onion-dish-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 174,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "2-onion-1-tomato.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 45,
+						"y": 178,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "onion-cooking-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 0,
+						"y": 181,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "tomato-onion-dish-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 203,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "onion-cooking-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 45,
+						"y": 210,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "onion-cooking-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 0,
+						"y": 213,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "tomato-onion-dish-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 29,
+						"h": 29
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 29,
+						"h": 29
+					},
+					"frame": {
+						"x": 90,
+						"y": 232,
+						"w": 29,
+						"h": 29
+					}
+				},
+				{
+					"filename": "onion-tomato-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 45,
+						"y": 242,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "tomato-cooking-1.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 0,
+						"y": 245,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "tomato-cooking-2.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 45,
+						"y": 274,
+						"w": 45,
+						"h": 32
+					}
+				},
+				{
+					"filename": "tomato-cooking-3.png",
+					"rotated": false,
+					"trimmed": false,
+					"sourceSize": {
+						"w": 45,
+						"h": 32
+					},
+					"spriteSourceSize": {
+						"x": 0,
+						"y": 0,
+						"w": 45,
+						"h": 32
+					},
+					"frame": {
+						"x": 0,
+						"y": 277,
+						"w": 45,
+						"h": 32
+					}
+				}
+			]
+		}
+	],
+	"meta": {
+		"app": "https://www.codeandweb.com/texturepacker",
+		"version": "3.0",
+		"smartupdate": "$TexturePacker:SmartUpdate:2f308dad3ac5802ae50112e23488c52f:a8357d0ecc5920391a012f1f254dd24e:1e4a55a887ecf42c67c9f02537ecf1ec$"
+	}
+}
