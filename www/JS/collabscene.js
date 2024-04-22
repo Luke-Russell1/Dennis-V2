@@ -32,23 +32,6 @@ export default class CollabScene extends Phaser.Scene {
   create() {
     this.ws = this.game.ws;
     console.log(this.ws)
-    if (this.initialState.whichPlayer == 'P1') {
-    this.playerState = this.initialState.player1;
-    this.otherPlayerState = this.initialState.player2;
-    } else {
-      this.playerState = this.initialState.player2;
-      this.otherPlayerState = this.initialState.player1;
-    }
-    // sets method to update other player pos on new message
-    this.ws.onmessage = (event) => {  
-      const data = JSON.parse(event.data);
-      console.log(data)
-      if (this.initialState.whichPlayer == 'P1') {
-        this.otherPlayerState = data.player2;
-      } else {
-        this.otherPlayerState = data.player1;
-      }
-    }
 
 
     // sets input keys
@@ -103,11 +86,6 @@ export default class CollabScene extends Phaser.Scene {
     );
   }
   update() {
-    // Handle player movement, input, etc.
-    this.movePlayer(this.player, 5, this.keys);
-    console.log(this.playerState)
-    this.ws.send(JSON.stringify(this.playerState));
-    this.updateOtherPlayer(this.otherPlayerState);
   }
   movePlayer(player, speed, keys){
     player.setVelocity(0);
@@ -125,10 +103,6 @@ export default class CollabScene extends Phaser.Scene {
     this.player.y = player.y;
     this.playerState.x = player.x;
     this.playerState.y = player.y;
-  }
-  updateOtherPlayer (data) {
-    this.otherPlayer.x = data.x;
-    this.otherPlayer.y = data.y;
   }
 
 

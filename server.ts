@@ -1,6 +1,7 @@
 
 import express from 'express'
 import { stat } from 'fs'
+import { send } from 'process'
 import { Server as WSServer } from 'ws'
 import { WebSocket } from 'ws'
 
@@ -52,14 +53,6 @@ type State = {
 
 
 const now = new Date();
-
-const initialState: initialState = {
-  whichPlayer: 'null',
-  stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', timestamp: now },
-  player2: { x: 10*45, y: 8*45, status: 'ready', timestamp: now},
-  timestamp: now,
-}
 const state: State = {
   stage: { name: 'game' },
   player1: { x: 8*45, y: 8*45, status: 'ready', timestamp: now },
@@ -103,15 +96,17 @@ wss.on('connection', function(ws) {
   if (connections.player1 === null) {
     connections.player1 = ws;
     console.log('Player 1 connected');
-    initialState.whichPlayer = 'P1';
     // Send only the relevant data to player 1
-    connections.player1.send(JSON.stringify(initialState));
+    applyToState('player1', state.player1);
+    send_playerData('player2');
+    console.log(send_playerData('player2'))
   } else if (connections.player2 === null) {
     connections.player2 = ws;
     console.log('Player 2 connected');
-    initialState.whichPlayer = 'P2';
     // Send only the relevant data to player 2
-    connections.player2.send(JSON.stringify(initialState));
+    applyToState('player2', state.player2);
+    send_playerData('player1');
+    console.log(send_playerData('player1'));
   } else {
     console.error('No available player slots');
   }
