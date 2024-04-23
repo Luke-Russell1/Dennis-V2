@@ -31,8 +31,7 @@ export default class CollabScene extends Phaser.Scene {
 
   create() {
     this.ws = this.game.ws;
-    console.group(this.initialState);
-
+    this.state = this.initialState
 
     // sets input keys
     this.keys = {
@@ -45,15 +44,23 @@ export default class CollabScene extends Phaser.Scene {
     };
     // Sets the player colour depending on which player they connect as
     this.createMap();
-    if (this.initialState.whichPlayer == 'P1') {
+    if (this.initialState.whichPlayer.name == 'P1') {
       this.player = this.physics.add.sprite(this.initialState.player1.x, this.initialState.player2.y, "agents", "SOUTH.png");
       this.otherPlayer = this.physics.add.sprite(this.initialState.player2.x, this.initialState.player2.y, "agents", "SOUTH.png");
       this.otherPlayer.setTint(0xff0000);
-    } else {
+      console.log(this.state);
+    } if (this.initialState.whichPlayer.name == 'P2') {
       this.player = this.physics.add.sprite(this.initialState.player2.x, this.initialState.player2.y, "agents", "SOUTH.png");
       this.otherPlayer = this.physics.add.sprite(this.initialState.player1.x, this.initialState.player1.y, "agents", "SOUTH.png");
       this.otherPlayer.setTint(0xff0000);
+      let temp = this.state.player1;
+      this.state.player1 = this.state.player2;
+      this.state.player2 = temp;
+      console.log(this.state);
+    } else if (this.initialState.whichPlayer.name == 'null') {
+      console.error('No player name given');
     }
+
     // adds colliders for the world
     this.physics.add.collider(this.player, this.layer);
     this.physics.add.collider(this.otherPlayer, this.layer);
@@ -86,23 +93,29 @@ export default class CollabScene extends Phaser.Scene {
     );
   }
   update() {
+    this.movePlayer(3, this.keys);
+    this.ws.onmessage = (event) => {
+      let data = JSON.parse(event.data);
+      Object.assign(this.state, data);
+      this.updatePlayer(this.player, this.state.player1);
+      this.updatePlayer(this.otherPlayer, this.state.player2);
   }
-  movePlayer(player, speed, keys){
-    player.setVelocity(0);
+}
+  movePlayer(speed, keys){
     if (keys.left.isDown) {
-      player.setVelocityX(-speed);
+      this.state.player1.x -= speed;
     } else if (keys.right.isDown) {
-      player.setVelocityX(speed);
+      this.state.player1.x += speed;
     }
     if (keys.up.isDown) {
-      player.setVelocityY(-speed);
+      this.state.player1.y -= speed;
     } else if (keys.down.isDown) {
-      player.setVelocityY(speed);
-    }
-    this.player.x = player.x;
-    this.player.y = player.y;
-    this.playerState.x = player.x;
-    this.playerState.y = player.y;
+      this.state.player1.y += speed;}
+    this.ws.send(JSON.stringify(this.state.player1));
+  }
+  updatePlayer(player, playerData) {
+    player.x = playerData.x;
+    player.y = playerData.y;
   }
 
 
