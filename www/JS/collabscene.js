@@ -31,7 +31,7 @@ export default class CollabScene extends Phaser.Scene {
 
   create() {
     this.ws = this.game.ws;
-    console.log(this.ws)
+    console.group(this.initialState);
 
 
     // sets input keys

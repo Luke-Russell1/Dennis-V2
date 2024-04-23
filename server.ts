@@ -81,12 +81,12 @@ function send_playerData(player: 'player1' | 'player2') {
     const temp = state.player1;
     stateToSend.player1 = state.player2;
     stateToSend.player2 = temp;
-    console.log(stateToSend.player2)
     connections.player2.send(JSON.stringify(stateToSend));
+    console.log(stateToSend);
   }
   else if (connections.player1) {
     connections.player1.send(JSON.stringify(state));
-    console.log(state)
+    console.log(state);
   }
 
 }
@@ -97,16 +97,12 @@ wss.on('connection', function(ws) {
     connections.player1 = ws;
     console.log('Player 1 connected');
     // Send only the relevant data to player 1
-    applyToState('player1', state.player1);
     send_playerData('player2');
-    console.log(send_playerData('player2'))
   } else if (connections.player2 === null) {
     connections.player2 = ws;
     console.log('Player 2 connected');
     // Send only the relevant data to player 2
-    applyToState('player2', state.player2);
     send_playerData('player1');
-    console.log(send_playerData('player1'));
   } else {
     console.error('No available player slots');
   }
