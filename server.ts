@@ -37,7 +37,8 @@ type Player = {
   x: number,
   y: number,
   status: 'ready' | 'notReady',
-  timestamp: Date,
+  direction: 'SOUTH' | 'NORTH' | 'EAST' | 'WEST',
+  timestamp: number | Date,
 }
 
 type initialState = {
@@ -45,39 +46,43 @@ type initialState = {
   stage: Stage,
   player1: Player,
   player2: Player,
-  timestamp: Date,
+  timestamp: number | Date,
 }
 type State = {
   stage: Stage,
   player1: Player,
   player2: Player,
-  timestamp: Date,
+  timestamp: number | Date,
 }
 
 
 const now = new Date();
 const state: State = {
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', timestamp: now },
-  player2: { x: 10*45, y: 8*45, status: 'ready', timestamp: now},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH',timestamp: now.getTime()},
+  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', timestamp: now.getTime()},
   timestamp: now,
 }
 const initialstate: initialState = {
   whichPlayer: {name: 'null'},
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', timestamp: now },
-  player2: { x: 10*45, y: 8*45, status: 'ready', timestamp: now},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', timestamp: now.getTime()},
+  player2: { x: 10*45, y: 8*45, status: 'ready', direction: 'SOUTH', timestamp: now.getTime()},
   timestamp: now,
 }
 
 function applyToState(player: 'player1' | 'player2', values: Player) {
   if (player === 'player1') {
     state.player1 = values;
+    state.player1.timestamp = new Date().getTime();
+    state.timestamp = new Date().getTime();
     if (connections.player2)
       connections.player2.send(JSON.stringify(state))
   }
   else if (player === 'player2') {
     state.player2 = values;
+    state.player2.timestamp = new Date().getTime();
+    state.timestamp = new Date().getTime();
     if (connections.player1)
       connections.player1.send(JSON.stringify(state))
   }
@@ -91,9 +96,11 @@ function send_Data(player: 'player1' | 'player2') {
     const temp = state.player1;
     stateToSend.player1 = state.player2;
     stateToSend.player2 = temp;
+    stateToSend.timestamp = new Date().getTime();
     connections.player2.send(JSON.stringify(stateToSend));
   }
   else if (connections.player1) {
+    state.timestamp = new Date().getTime();
     connections.player1.send(JSON.stringify(state));
   }
 
@@ -113,6 +120,11 @@ function send_playerData(player: 'player1' | 'player2') {
   }
 }
 
+/*
+So if two players connect AT THE SAME TIME it seems like the initial state is correctly sent to both players, 
+but if one connects before the other and moves then it will incorrectly send the state variable of the first player
+leading to both players spawning on top of one another. 
+*/
 
 wss.on('connection', function(ws) {
   if (connections.player1 === null) {
@@ -133,11 +145,11 @@ wss.on('connection', function(ws) {
     const data = JSON.parse(m.toString('utf-8')) as Player;
     if (connections.player1 === ws) {
       applyToState('player1', data);
-      send_Data('player1');
+      send_Data('player2');
     }
     else if (connections.player2 === ws) {
       applyToState('player2', data);
-      send_Data('player2');
+      send_Data('player1');
     }
   });
 

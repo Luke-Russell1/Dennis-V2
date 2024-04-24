@@ -1,6 +1,10 @@
 import CollabScene from "./collabscene.js";
 
 var config = {
+  fps: {
+    target: 50,
+    forceSetTimeOut: true,
+  },
   type: Phaser.AUTO,
   width: 20 * 45,
   height: 16 * 45,

@@ -32,7 +32,6 @@ export default class CollabScene extends Phaser.Scene {
   create() {
     this.ws = this.game.ws;
     this.state = this.initialState
-
     // sets input keys
     this.keys = {
       up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
@@ -42,32 +41,8 @@ export default class CollabScene extends Phaser.Scene {
       interact: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
       DRT: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
     };
-    // Sets the player colour depending on which player they connect as
-    this.createMap();
-    if (this.initialState.whichPlayer.name == 'P1') {
-      this.player = this.physics.add.sprite(this.initialState.player1.x, this.initialState.player2.y, "agents", "SOUTH.png");
-      this.otherPlayer = this.physics.add.sprite(this.initialState.player2.x, this.initialState.player2.y, "agents", "SOUTH.png");
-      this.otherPlayer.setTint(0xff0000);
-      console.log(this.state);
-    } if (this.initialState.whichPlayer.name == 'P2') {
-      this.player = this.physics.add.sprite(this.initialState.player2.x, this.initialState.player2.y, "agents", "SOUTH.png");
-      this.otherPlayer = this.physics.add.sprite(this.initialState.player1.x, this.initialState.player1.y, "agents", "SOUTH.png");
-      this.otherPlayer.setTint(0xff0000);
-      let temp = this.state.player1;
-      this.state.player1 = this.state.player2;
-      this.state.player2 = temp;
-      console.log(this.state);
-    } else if (this.initialState.whichPlayer.name == 'null') {
-      console.error('No player name given');
-    }
-
-    // adds colliders for the world
-    this.physics.add.collider(this.player, this.layer);
-    this.physics.add.collider(this.otherPlayer, this.layer);
-
-  }
-  createMap() {
-    // Create and load the tilemap
+    console.log(this.initialState)
+    // creates map and adds tilesets
     this.map = this.make.tilemap({
       key: "map",
       tileWidth: envConstants.tileSize,
@@ -83,41 +58,90 @@ export default class CollabScene extends Phaser.Scene {
     );
     // Create collision layer
     this.layer = this.map.createLayer(0, this.tileset, 0, 0);
-    const tilesToCollideWith = [0, 1, 3, 4, 5]; // Example tile indices to collide with
+    const tilesToCollideWith = [0, 1, 3, 4, 5]; 
     this.layer.setCollision(tilesToCollideWith);
     // Set callbacks for collision events
     this.layer.setTileIndexCallback(
       tilesToCollideWith,
       this.handleTileCollision,
       this
-    );
+    );  
+
+    // Create and assigns player sprites depending on which player they connect as 
+    this.player = this.physics.add.sprite(this.initialState.player1.x, this.initialState.player1.y, "agents", this.initialState.player1.direction + ".png");
+    this.otherPlayer = this.physics.add.sprite(this.initialState.player2.x, this.initialState.player2.y, "agents", this.initialState.player2.direction + ".png");
+    // sets other player red PLACEHOLDER
+    this.otherPlayer.setTint(0xff0000);
+    this.physics.world.createDebugGraphic();
+    // enables collision with map and player
+    this.physics.add.collider(this.player, this.layer);
+    this.physics.add.collider(this.otherPlayer, this.layer);
+    
+    
+
+    
+
   }
   update() {
-    this.movePlayer(3, this.keys);
+    // moves player
+    this.movePlayer(40, this.keys);
+
+    // listens for new player data, 
     this.ws.onmessage = (event) => {
       let data = JSON.parse(event.data);
       Object.assign(this.state, data);
-      this.updatePlayer(this.player, this.state.player1);
       this.updatePlayer(this.otherPlayer, this.state.player2);
   }
+
 }
-  movePlayer(speed, keys){
-    if (keys.left.isDown) {
-      this.state.player1.x -= speed;
-    } else if (keys.right.isDown) {
-      this.state.player1.x += speed;
-    }
-    if (keys.up.isDown) {
-      this.state.player1.y -= speed;
-    } else if (keys.down.isDown) {
-      this.state.player1.y += speed;}
-    this.ws.send(JSON.stringify(this.state.player1));
+movePlayer(speed, keys){
+  /*
+  this current method allows for players to move diagnally, which is ideal for analysis but maybe not for the game?
+  For example, it may display a north image on my screen, but while moving north-west, it may display the east image on the other player's screen
+  need to think more about this. 
+  */
+  if (keys.left.isDown) {
+    this.player.body.setVelocityX(-speed);
+    this.state.player1.direction = 'WEST';
+    this.updatePlayerImage(this.player, 'WEST');
+  } else if (keys.right.isDown) {
+    this.player.body.setVelocityX(speed);
+    this.state.player1.direction = 'EAST';
+    this.updatePlayerImage(this.player, 'EAST');
+  } else {
+    this.player.body.setVelocityX(0);
   }
+  if (keys.up.isDown) {
+    this.player.body.setVelocityY(-speed);
+    this.player.direction = 'NORTH';
+    this.updatePlayerImage(this.player, 'NORTH');
+  } else if (keys.down.isDown) {
+    this.player.body.setVelocityY(speed);
+    this.player.direction = 'SOUTH';
+    this.updatePlayerImage(this.player, 'SOUTH');
+  } else {
+    this.player.body.setVelocityY(0);
+  }
+
+  this.state.player1.x = this.player.x;
+  this.state.player1.y = this.player.y;
+  this.ws.send(JSON.stringify(this.state.player1));
+}
   updatePlayer(player, playerData) {
     player.x = playerData.x;
     player.y = playerData.y;
+    this.updatePlayerImage(player, playerData.direction);
   }
-
-
+  handleTileCollision(player, tile) {
+    // Handle collision
+    // Stores tile that the player is colliding with to be used for interactions later
+    // we want to have a value that we just refer to, but also one that we store for later
+    // might be a little redundant??
+    let player_collision_tile = tile.index;
+    return player_collision_tile;
+  }
+  updatePlayerImage(player, direction) {
+    player.setTexture("agents", direction + ".png");
+  }
 }
 
