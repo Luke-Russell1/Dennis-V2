@@ -38,6 +38,7 @@ type Player = {
   y: number,
   status: 'ready' | 'notReady',
   direction: 'SOUTH' | 'NORTH' | 'EAST' | 'WEST',
+  interactionTile: string|null,
   timestamp: number | Date,
 }
 
@@ -59,15 +60,15 @@ type State = {
 const now = new Date();
 const state: State = {
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH',timestamp: now.getTime()},
-  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', timestamp: now.getTime()},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null,  timestamp: now.getTime()},
+  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, timestamp: now.getTime()},
   timestamp: now,
 }
 const initialstate: initialState = {
   whichPlayer: {name: 'null'},
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', timestamp: now.getTime()},
-  player2: { x: 10*45, y: 8*45, status: 'ready', direction: 'SOUTH', timestamp: now.getTime()},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, timestamp: now.getTime()},
+  player2: { x: 10*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, timestamp: now.getTime()},
   timestamp: now,
 }
 

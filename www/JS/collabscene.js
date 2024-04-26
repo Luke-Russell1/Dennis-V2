@@ -32,6 +32,10 @@ export default class CollabScene extends Phaser.Scene {
   create() {
     this.ws = this.game.ws;
     this.state = this.initialState
+    // environment variables for interactions
+    this.collision_tile = 0;
+    console.log(this.collision_tile);
+    this.interactionInitiated = false;
     // sets input keys
     this.keys = {
       up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
@@ -66,7 +70,6 @@ export default class CollabScene extends Phaser.Scene {
       this.handleTileCollision,
       this
     );  
-
     // Create and assigns player sprites depending on which player they connect as 
     this.player = this.physics.add.sprite(this.initialState.player1.x, this.initialState.player1.y, "agents", this.initialState.player1.direction + ".png");
     this.otherPlayer = this.physics.add.sprite(this.initialState.player2.x, this.initialState.player2.y, "agents", this.initialState.player2.direction + ".png");
@@ -76,16 +79,11 @@ export default class CollabScene extends Phaser.Scene {
     // enables collision with map and player
     this.physics.add.collider(this.player, this.layer);
     this.physics.add.collider(this.otherPlayer, this.layer);
-    
-    
-
-    
-
   }
   update() {
     // moves player
-    this.movePlayer(40, this.keys);
-
+    this.tileInteraction();
+    this.movePlayer(100, this.keys);
     // listens for new player data, 
     this.ws.onmessage = (event) => {
       let data = JSON.parse(event.data);
@@ -94,35 +92,30 @@ export default class CollabScene extends Phaser.Scene {
   }
 
 }
-movePlayer(speed, keys){
-  /*
-  this current method allows for players to move diagnally, which is ideal for analysis but maybe not for the game?
-  For example, it may display a north image on my screen, but while moving north-west, it may display the east image on the other player's screen
-  need to think more about this. 
-  */
+movePlayer(speed, keys) {
+  // Reset velocity
+  this.player.body.setVelocity(0);
+
+  // Set velocity based on pressed keys
   if (keys.left.isDown) {
-    this.player.body.setVelocityX(-speed);
-    this.state.player1.direction = 'WEST';
-    this.updatePlayerImage(this.player, 'WEST');
-  } else if (keys.right.isDown) {
-    this.player.body.setVelocityX(speed);
-    this.state.player1.direction = 'EAST';
-    this.updatePlayerImage(this.player, 'EAST');
-  } else {
-    this.player.body.setVelocityX(0);
-  }
+      this.player.body.setVelocityX(-speed);
+      this.state.player1.direction = 'WEST';
+  } 
+  if (keys.right.isDown) {
+      this.player.body.setVelocityX(speed);
+      this.state.player1.direction = 'EAST';
+  } 
   if (keys.up.isDown) {
-    this.player.body.setVelocityY(-speed);
-    this.player.direction = 'NORTH';
-    this.updatePlayerImage(this.player, 'NORTH');
-  } else if (keys.down.isDown) {
-    this.player.body.setVelocityY(speed);
-    this.player.direction = 'SOUTH';
-    this.updatePlayerImage(this.player, 'SOUTH');
-  } else {
-    this.player.body.setVelocityY(0);
+      this.player.body.setVelocityY(-speed);
+      this.state.player1.direction = 'NORTH';
+  } 
+  if (keys.down.isDown) {
+      this.player.body.setVelocityY(speed);
+      this.state.player1.direction = 'SOUTH';
   }
 
+  // Update player image and position
+  this.updatePlayerImage(this.player, this.state.player1.direction, this.state.player1.interactionTile);
   this.state.player1.x = this.player.x;
   this.state.player1.y = this.player.y;
   this.ws.send(JSON.stringify(this.state.player1));
@@ -130,18 +123,56 @@ movePlayer(speed, keys){
   updatePlayer(player, playerData) {
     player.x = playerData.x;
     player.y = playerData.y;
-    this.updatePlayerImage(player, playerData.direction);
+    this.updatePlayerImage(player, playerData.direction, playerData.interactionTile);
   }
-  handleTileCollision(player, tile) {
-    // Handle collision
-    // Stores tile that the player is colliding with to be used for interactions later
-    // we want to have a value that we just refer to, but also one that we store for later
-    // might be a little redundant??
-    let player_collision_tile = tile.index;
-    return player_collision_tile;
+  handleTileCollision(player,tile) {
+    // Log tile information
+    console.log("Collided with tile index:", tile.index);
+    console.log("Tile coordinates (x, y):", tile.x, tile.y);
+    
+    // Store the index of the collided tile for later use
+    this.collision_tile = tile.index;
+}
+  
+  updatePlayerImage(player, direction, interactionTile) {
+    if (interactionTile === null) {
+      player.setTexture("agents", direction + ".png");
+    }
+    else {
+      console.log(interactionTile);
+      player.setTexture("agents", direction + "-" + interactionTile + ".png");
+
+    }
   }
-  updatePlayerImage(player, direction) {
-    player.setTexture("agents", direction + ".png");
+  tileInteraction () {
+    /*
+    Basically whenever the conditions are met for interaction, the player will interact with the tile
+    and it will then send the updated state to the server to update the players image. 
+    */
+    if (this.keys.interact.isDown && this.state.player1.interactionTile != 0) {
+      this.interactionInitiated = true;
+      if (this.interactionInitiated && this.collision_tile == 1){
+        this.state.player1.interactionTile = 'dish';
+        this.ws.send(JSON.stringify(this.state.player1));
+      }
+      if (this.interactionInitiated && this.collision_tile == 3){
+        this.state.player1.interactionTile = 'onion';
+        this.ws.send(JSON.stringify(this.state.player1));
+      }
+      if (this.interactionInitiated && this.collision_tile == 4){
+        this.state.player1.interactionTile = 'pot';
+        this.ws.send(JSON.stringify(this.state.player1));
+      }
+      if (this.interactionInitiated && this.collision_tile == 5){
+        this.state.player1.interactionTile = 'serve';
+        this.ws.send(JSON.stringify(this.state.player1));
+      }
+      if (this.interactionInitiated && this.collision_tile == 6){
+        this.state.player1.interactionTile = 'tomato';;
+        this.ws.send(JSON.stringify(this.state.player1));
+      }
+
+    }
   }
 }
 
