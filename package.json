@@ -3,6 +3,7 @@
     "start": "npx ts-node server.ts"
   },
   "dependencies": {
+    "csv-parse": "^5.5.5",
     "express": "^4.19.2",
     "phaser": "^3.80.1",
     "ts-node": "^10.9.2",

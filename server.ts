@@ -4,6 +4,7 @@ import { stat } from 'fs'
 import { send } from 'process'
 import { Server as WSServer } from 'ws'
 import { WebSocket } from 'ws'
+const fs = require('fs');
 
 const app = express()
 const port = 3000
@@ -32,14 +33,24 @@ type Stage = {
 type WhichPlayer = {
   name: 'P1' | 'P2' | 'null',
 }
-
+type Pot = {
+  x: number,
+  y: number,
+  onions: 0 | 1 | 2 | 3, 
+  stage: 0 | 1 | 2 | 3, 
+  id: string,
+}
 type Player = {
   x: number,
   y: number,
   status: 'ready' | 'notReady',
   direction: 'SOUTH' | 'NORTH' | 'EAST' | 'WEST',
   interactionTile: string|null,
+  score: number,
+  onionsAdded: number,
+  pots: any,
   timestamp: number | Date,
+
 }
 
 type initialState = {
@@ -56,20 +67,62 @@ type State = {
   timestamp: number | Date,
 }
 
-
 const now = new Date();
+const levelFile = 'www/layouts/layout_1V2.csv';
+const tileSize = 45;
+const potLocations = findPotLocations(levelFile, tileSize);
+console.log('Pots:', potLocations);
+
 const state: State = {
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null,  timestamp: now.getTime()},
-  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, timestamp: now.getTime()},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
+  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
   timestamp: now,
 }
 const initialstate: initialState = {
   whichPlayer: {name: 'null'},
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, timestamp: now.getTime()},
-  player2: { x: 10*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, timestamp: now.getTime()},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
+  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
   timestamp: now,
+}
+function findPotLocations(levelFile: any, tileSize: number) {
+  // Read the CSV file
+  const csvData = fs.readFileSync(levelFile, 'utf-8');
+
+  // Parse the CSV data
+  const parsedData = csvData.split('\n').map((row: string) => row.split(','));
+
+  // Define the tile index representing pots (assuming it's 4)
+  const potIndex = 4;
+
+  // Array to store pot objects
+  const pots = [];
+
+  // Counter for assigning pot numbers
+  let potNum = 1;
+  for (let y = 0; y < parsedData.length; y++) {
+      const row = parsedData[y];
+      for (let x = 0; x < row.length; x++) {
+          const tileIndex = parseInt(row[x]);
+          // Check if the tile index matches the pot index
+          if (tileIndex === potIndex) {
+              // Create a pot object with x and y coordinates, onions, stage, potNum, and id
+              const pot = {
+                  id: `pot_${potNum}`, // Unique identifier for the pot
+                  x: x * tileSize + tileSize / 2, // Calculate x coordinate
+                  y: y * tileSize + tileSize / 2, // Calculate y coordinate
+                  onions: 0,
+                  stage: 0,
+                  potNum: potNum++
+              };
+              // Push the pot object into the pots array
+              pots.push(pot);
+          }
+      }
+  }
+  // Return the array of pot objects
+  return pots;
 }
 
 function applyToState(player: 'player1' | 'player2', values: Player) {

@@ -87,9 +87,10 @@ export default class CollabScene extends Phaser.Scene {
     // listens for new player data, 
     this.ws.onmessage = (event) => {
       let data = JSON.parse(event.data);
-      Object.assign(this.state, data);
-      this.updatePlayer(this.otherPlayer, this.state.player2);
-  }
+      Object.assign(this.state.player2, data.player2);
+    }
+    this.updatePlayer(this.otherPlayer, this.state.player2);
+
 
 }
 movePlayer(speed, keys) {
@@ -139,7 +140,6 @@ movePlayer(speed, keys) {
       player.setTexture("agents", direction + ".png");
     }
     else {
-      console.log(interactionTile);
       player.setTexture("agents", direction + "-" + interactionTile + ".png");
 
     }
