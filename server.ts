@@ -48,7 +48,6 @@ type Player = {
   interactionTile: string|null,
   score: number,
   onionsAdded: number,
-  pots: any,
   timestamp: number | Date,
 
 }
@@ -58,12 +57,14 @@ type initialState = {
   stage: Stage,
   player1: Player,
   player2: Player,
+  pots:any
   timestamp: number | Date,
 }
 type State = {
   stage: Stage,
   player1: Player,
   player2: Player,
+  pots:any
   timestamp: number | Date,
 }
 
@@ -75,19 +76,32 @@ console.log('Pots:', potLocations);
 
 const state: State = {
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
-  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, timestamp: now.getTime()},
+  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, timestamp: now.getTime()},
+  pots:potLocations,
   timestamp: now,
 }
 const initialstate: initialState = {
   whichPlayer: {name: 'null'},
   stage: { name: 'game' },
-  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
-  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, pots: potLocations, timestamp: now.getTime()},
+  player1: { x: 8*45, y: 8*45, status: 'ready', direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, timestamp: now.getTime()},
+  player2: { x: 10*45,y: 8*45, status: 'ready',direction: 'SOUTH', interactionTile: null, score: 0, onionsAdded: 0, timestamp: now.getTime()},
+  pots:potLocations,
   timestamp: now,
 }
+
+
 function findPotLocations(levelFile: any, tileSize: number) {
-  // Read the CSV file
+  /*
+    Functions reads in the LEVELMAP csv file and finds the locations of the pots, which correspond to the #4 in the file. This then creates a list of 
+    pot objects corresponding to the number found on the map. It stores:
+    ID: unique ID
+    X: X coord (scaled by tilesize)
+    Y: y coord (scaled by tilesize)
+    onions: number of onions currently in there
+    stage: cooking stage, split into 4 (0 no cooking, 1,2,3 for images associated with cooking)
+
+  */
   const csvData = fs.readFileSync(levelFile, 'utf-8');
 
   // Parse the CSV data
@@ -126,6 +140,9 @@ function findPotLocations(levelFile: any, tileSize: number) {
 }
 
 function applyToState(player: 'player1' | 'player2', values: Player) {
+  /*
+  
+  */
   if (player === 'player1') {
     state.player1 = values;
     state.player1.timestamp = new Date().getTime();
@@ -141,7 +158,7 @@ function applyToState(player: 'player1' | 'player2', values: Player) {
       connections.player1.send(JSON.stringify(state))
   }
 
-  console.log('State is now', JSON.stringify(state, null, 2))
+  //console.log('State is now', JSON.stringify(state, null, 2))
 }
 function send_Data(player: 'player1' | 'player2') {
 
@@ -196,14 +213,19 @@ wss.on('connection', function(ws) {
   }
 
   ws.on('message', function message(m) {
-    const data = JSON.parse(m.toString('utf-8')) as Player;
-    if (connections.player1 === ws) {
-      applyToState('player1', data);
-      send_Data('player2');
-    }
-    else if (connections.player2 === ws) {
-      applyToState('player2', data);
-      send_Data('player1');
+    const data = JSON.parse(m.toString('utf-8')); 
+    switch(data.type) {
+      case 'player':
+        console.log('Received player data', data.data);
+        const playerData = data.data as Player;
+        if (connections.player1 === ws) {
+          applyToState('player1', playerData);
+          send_Data('player2');
+        }
+        else if (connections.player2 === ws) {
+          applyToState('player2', playerData);
+          send_Data('player1');
+        }
     }
   });
 
