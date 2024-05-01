@@ -23,26 +23,29 @@ class Game extends Phaser.Game {
   constructor() {
     super(config);
 
-    
     // Initialize WebSocket connection
-    this.ws = new WebSocket('ws://localhost:3000/coms');
+    this.ws = new WebSocket("ws://localhost:3000/coms");
     this.initialState = {};
     this.ws.onopen = () => {
-      console.log('Connected to server');
+      console.log("Connected to server");
     };
-    this.ws.onmessage = (event) => { 
-      let data = JSON.parse(event.data);
+    this.ws.onmessage = (event) => {
+      let data = JSON.parse(event.data.toString());
       Object.assign(this.initialState, data);
+      console.log(this.initialState);
     };
     this.ws.onclose = () => {
-      console.log('Disconnected from server');
+      console.log("Disconnected from server");
     };
     this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error("WebSocket error:", error);
     };
 
     // Start the scene
-    this.scene.add("CollabScene", new CollabScene({initialState: this.initialState, ws: this.ws}));
+    this.scene.add(
+      "CollabScene",
+      new CollabScene({ initialState: this.initialState, ws: this.ws })
+    );
     this.scene.start("CollabScene");
   }
 }
