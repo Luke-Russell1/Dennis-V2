@@ -16,6 +16,26 @@ const server = app.listen(port, () => {
 
 const wss = new WSServer({ server, path: "/coms" });
 
+/*
+Below is just declaring the different types and variables that are being used and sent to the players.
+  - stage: this is the stage of the game, either instructions or game. This is used to determine what the player sees. 
+    OTHER STAGES WILL BE ADDED. THESE ARE JUST PLACEHOLDERS.
+
+  - whichPlayer: this is used to determine which player the player is. This is used to determine what the player sees for initial state
+
+  - pot: this is the object for the pot. It stores the x and y coordinates, the number of onions in the pot, the stage of the pot, and the ID of the pot
+
+  - player: this is the object for the player. It stores the x and y coordinates, the status of the player (ready or notReady), the direction the player is facing, 
+    the tile the player is interacting with, the score of the player, the number of onions the player has added to the pot, and the timestamp of the player.
+    This is used to update the state of the game based on the data each player is sending about their positions, score, interactions etc.
+
+  - initialState: this is the initial state of the game. Only used to dictate positions when they first connect. 
+  
+  - state: this is the state of the game. This is updated based on the data sent by the players. This is then sent to the players so they can update their game. 
+    This is also used to determine what the player sees.
+
+*/
+
 const connections: {
   player1: WebSocket | null;
   player2: WebSocket | null;
@@ -131,19 +151,14 @@ function findPotLocations(levelFile: any, tileSize: number) {
     Y: y coord (scaled by tilesize)
     onions: number of onions currently in there
     stage: cooking stage, split into 4 (0 no cooking, 1,2,3 for images associated with cooking)
-
   */
   const csvData = fs.readFileSync(levelFile, "utf-8");
-
   // Parse the CSV data
   const parsedData = csvData.split("\n").map((row: string) => row.split(","));
-
   // Define the tile index representing pots (assuming it's 4)
   const potIndex = 4;
-
   // Array to store pot objects
   const pots = [];
-
   // Counter for assigning pot numbers
   let potNum = 1;
   for (let y = 0; y < parsedData.length; y++) {
@@ -172,7 +187,8 @@ function findPotLocations(levelFile: any, tileSize: number) {
 
 function applyToState(player: "player1" | "player2", values: Player) {
   /*
-  
+    Applies incoming data to the state object. This is used to update the state of the game based on the 
+    data each player is sending about their positions, score, interactions etc. 
   */
   if (player === "player1") {
     state.player1 = values;
@@ -187,6 +203,14 @@ function applyToState(player: "player1" | "player2", values: Player) {
   //console.log('State is now', JSON.stringify(state, null, 2))
 }
 function send_Data(player: "player1" | "player2") {
+  /*
+  Sends information to the player about the state of the game. This makes each player appear as player 1 to themselves, 
+  player 1 on the server is defined as the first player to connect. When sending to this player, it just sends the state as it is stored. 
+  When sending to player 2, it swaps the player1 and player2 states so that the player appears as player 1 to themselves. It also creates a new 
+  timestap marking when this was sent. 
+
+  TIMESTAMP NEEDS TO BE CHANGED SO IT IS IN SECONDS OR SOMETHING 
+  */
   if (player === "player2" && connections.player2) {
     const stateToSend = Object.assign({}, state);
     const temp = state.player1;
@@ -203,6 +227,9 @@ function send_Data(player: "player1" | "player2") {
 }
 
 function send_playerData(player: "player1" | "player2") {
+  /*
+  This sends initial states to the players only
+  */
   if (player === "player1" && connections.player1) {
     initialstate.whichPlayer.name = "P1";
     connections.player1.send(JSON.stringify(initialstate));
@@ -214,14 +241,11 @@ function send_playerData(player: "player1" | "player2") {
     console.log(initialstate);
   }
 }
-
-/*
-So if two players connect AT THE SAME TIME it seems like the initial state is correctly sent to both players, 
-but if one connects before the other and moves then it will incorrectly send the state variable of the first player
-leading to both players spawning on top of one another. 
-*/
-
 wss.on("connection", function (ws) {
+  /*
+  On initial connection, the players are sent the intial state of the game. Player 1 and Player 2 are then assigned to the connections object based on who connected 
+  first and who connected second. 
+  */
   if (connections.player1 === null) {
     connections.player1 = ws;
     console.log("Player 1 connected");
@@ -237,6 +261,12 @@ wss.on("connection", function (ws) {
   }
 
   ws.on("message", function message(m) {
+    /*
+    On message, this checks what type of message it is:
+    - player: updates the state of the game based on the player data sent, and then sends the other player the updated state. 
+    - pots: updates the state of the pots based on the data sent. This will also be sent to the other player so they can update the 
+            state of the pots on their end.
+    */
     const data = JSON.parse(m.toString("utf-8"));
     switch (data.type) {
       case "player":
