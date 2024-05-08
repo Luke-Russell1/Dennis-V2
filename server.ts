@@ -160,7 +160,7 @@ function findPotLocations(levelFile: any, tileSize: number) {
   // Array to store pot objects
   const pots = [];
   // Counter for assigning pot numbers
-  let potNum = 1;
+  let potNum = 0;
   for (let y = 0; y < parsedData.length; y++) {
     const row = parsedData[y];
     for (let x = 0; x < row.length; x++) {
@@ -174,6 +174,7 @@ function findPotLocations(levelFile: any, tileSize: number) {
           y: y * tileSize + tileSize / 2, // Calculate y coordinate
           onions: 0,
           stage: 0,
+          cooking: false,
           potNum: potNum++,
         };
         // Push the pot object into the pots array
@@ -220,7 +221,9 @@ function send_Data(player: "player1" | "player2") {
     connections.player2.send(
       JSON.stringify({ type: "state", data: stateToSend })
     );
-  } else if (connections.player1) {
+  }
+  
+  if (player === 'player1' && connections.player1) {
     state.timestamp = new Date().getTime();
     connections.player1.send(JSON.stringify({ type: "state", data: state }));
   }
@@ -282,6 +285,7 @@ wss.on("connection", function (ws) {
       case "pots":
         const potData = data.data;
         console.log("Pot data:", data.type);
+        console.log("Pot data:", data.data);
         break;
     }
   });

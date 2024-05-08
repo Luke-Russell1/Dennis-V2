@@ -34,6 +34,15 @@ export default class CollabScene extends Phaser.Scene {
   create() {
     this.ws = this.game.ws;
     this.state = this.initialState;
+    this.ws.onmessage = (event) => {
+      let playerData = JSON.parse(event.data);
+      switch (playerData.type) {
+        case "state":
+          this.updatePlayer(this.otherPlayer, playerData.data.player2);
+          break;
+      }
+    };
+
     // environment variables for interactions
     this.collision_tile = 0;
     this.interactionInitiated = false;
@@ -73,6 +82,21 @@ export default class CollabScene extends Phaser.Scene {
       this.handleTileCollision,
       this
     );
+    // controls the pot images so they arent writing over one another
+    this.potImages = [];
+    // save locations and images for a pot
+    this.map.forEachTile((tile) => {
+      if (tile.index === 4) {
+        const potImage = this.add.sprite(
+          tile.pixelX + tile.width / 2,
+          tile.pixelY + tile.height / 2,
+          "terrain",
+          "pot.png"
+        );
+        potImage.onions = 0;
+        this.potImages.push(potImage);
+      }
+    });
     // Create and assigns player sprites depending on which player they connect as
     this.player = this.physics.add.sprite(
       this.initialState.player1.x,
@@ -101,22 +125,13 @@ export default class CollabScene extends Phaser.Scene {
   update() {
     // moves player
     this.tileInteraction();
-    this.movePlayer(100, this.keys);
+    this.movePlayer(300, this.keys);
     this.potInteraction(this.state.player1, this.player, this.state.pots);
-    // listens for new player data,
-    this.ws.onmessage = (event) => {
-      let playerData = JSON.parse(event.data);
-      switch (playerData.type) {
-        case "state":
-          this.updatePlayer(this.otherPlayer, playerData.data.player2);
-          break;
-      }
-    };
+    this.potOnionUpdate(this.state.pots, this.potImages);
   }
   movePlayer(speed, keys) {
     // Reset velocity
     this.player.body.setVelocity(0);
-
     // Set velocity based on pressed keys
     if (keys.left.isDown) {
       this.player.body.setVelocityX(-speed);
@@ -134,7 +149,6 @@ export default class CollabScene extends Phaser.Scene {
       this.player.body.setVelocityY(speed);
       this.state.player1.direction = "SOUTH";
     }
-
     // Update player image and position
     this.updatePlayerImage(
       this.player,
@@ -200,6 +214,44 @@ export default class CollabScene extends Phaser.Scene {
       }
     }
   }
+
+  potOnionUpdate(pots, potImages) {
+    /*
+    This updates the image of the pot to reflect the number of onions currently in there. 
+    */
+    for (let i = 0; i < pots.length; i++) {
+        let pot = pots[i];
+        let potImage = potImages[i];
+        if (pot.onions <= 3 && pot.onions > 0) {
+            potImage.setTexture("soups", "onion-pot-" + pot.onions + ".png");
+        }
+        if (pot.onions === 3 && !pot.cooking) {
+            pot.cooking = true;
+            this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
+            this.cookPot(pot, potImage); // Call the method 'cookPot' using 'this'
+            console.log(this.state.pots);
+        }
+    }
+}
+
+cookPot(pot, potImage) {
+    if (pot.stage <= 3) {
+      pot.cooking = true;
+      pot.onions = 0;
+      let index = pot.potNum;
+        setTimeout(() => {
+            potImage.setTexture("soups", "onion-cooking-" + pot.stage + ".png");
+            pot.stage++;
+            console.log(this.state.pots);
+            this.cookPot(pot, potImage); // Continue cooking process using 'this'
+            this.state.pots[index] = pot
+            this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
+        }, 2000);
+    } else {
+        pot.cooking = false; // Cooking finished
+    }
+}
+
   potInteraction(player, playerSprite, pots) {
     for (let pot of pots) {
       const distance = Math.sqrt(
@@ -221,6 +273,8 @@ export default class CollabScene extends Phaser.Scene {
               JSON.stringify({ type: "pots", data: this.state.pots })
             );
             // Update player's interaction tile and send updated player data
+            player.onionAdded += 1;
+            player.score += 2;
             this.updatePlayerImage(playerSprite, player.direction, null);
             this.ws.send(
               JSON.stringify({ type: "player", data: this.state.player1 })
@@ -228,6 +282,9 @@ export default class CollabScene extends Phaser.Scene {
             // Set interaction cooldown
             // Reset interaction cooldown after 2 seconds
             setTimeout(() => {
+              // timeout is used because they can add multiple onions in one go
+              // adding the timeout makes it so it takes ages for this to happen
+              // and they would have probably moved away from the pot by then???
               this.interactionCooldown = false;
             }, 5000);
           }
