@@ -132,6 +132,7 @@ export default class CollabScene extends Phaser.Scene {
     this.movePlayer(300, this.keys);
     this.potInteraction(this.state.player1, this.player, this.state.pots);
     this.potOnionUpdate(this.state.pots, this.potImages);
+    this.handleServing(this.state.player1, this.player, this.state.pots);
   }
   movePlayer(speed, keys) {
     // Reset velocity
@@ -215,51 +216,81 @@ export default class CollabScene extends Phaser.Scene {
         this.ws.send(
           JSON.stringify({ type: "player", data: this.state.player1 })
         );
+        }
+        // specifically handles the interaction with a full pot
+       for (let pot of this.state.pots) {
+        const distance = Math.sqrt(
+          Math.pow(this.state.player1.x - pot.x, 2) + Math.pow(this.state.player1.y - pot.y, 2)
+        );
+        if (this.state.player1.interactionTile === "dish" && distance < 60 && pot.readyToServe === true) {
+          this.state.player1.interactionTile = "soup-onion";
+          this.ws.send(JSON.stringify({ type: "player", data: this.state.player1 }));
+          break;
+        
+       }
       }
     }
   }
+  
 
   potOnionUpdate(pots, potImages) {
     /*
     This updates the image of the pot to reflect the number of onions currently in there. 
     */
     for (let i = 0; i < pots.length; i++) {
-        let pot = pots[i];
-        let potImage = potImages[i];
-        if (pot.onions <= 3 && pot.onions > 0) {
-            potImage.setTexture("soups", "onion-pot-" + pot.onions + ".png");
-        }
-        if (pot.onions === 3 && !pot.cooking) {
-            pot.cooking = true;
-            this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
-            this.cookPot(pot, potImage); // Call the method 'cookPot' using 'this'
-            console.log(this.state.pots);
-        }
+      let pot = pots[i];
+      let potImage = potImages[i];
+      if (pot.onions <= 3 && pot.onions > 0) {
+        potImage.setTexture("soups", "onion-pot-" + pot.onions + ".png");
+      }
+      if (pot.onions === 3 && !pot.cooking) {
+        pot.cooking = true;
+        potImage.stage = 1;
+        this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
+        this.cookPot(pot, potImage); // Call the method 'cookPot' using 'this'
+        console.log(this.state.pots);
+      }
     }
-}
-
-cookPot(pot, potImage) {
+  }
+  cookPot(pot, potImage) {
     if (pot.stage <= 3) {
       pot.cooking = true;
       pot.onions = 0;
-      pot.stage = 1;
       let index = pot.potNum;
-        setTimeout(() => {
-            potImage.setTexture("soups", "onion-cooking-" + pot.stage + ".png");
-            pot.stage++;
-            console.log(this.state.pots);
-            this.cookPot(pot, potImage); // Continue cooking process using 'this'
-            this.state.pots[index] = pot
-            if (pot.stage === 4) {
-              pot.readyToServe = true;
-              pot.stage = 0;
-            }
-            this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
-        }, 2000);
+      setTimeout(() => {
+        potImage.setTexture("soups", "onion-cooking-" + pot.stage + ".png");
+        pot.stage++;
+        console.log(this.state.pots);
+        this.cookPot(pot, potImage); // Continue cooking process using 'this'
+        this.state.pots[index] = pot;
+        if (pot.stage === 4) {
+          pot.readyToServe = true;
+          pot.stage = 0;
+        }
+        this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
+      }, 2000);
     } else {
-        pot.cooking = false; // Cooking finished
+      pot.cooking = false; // Cooking finished
     }
+  }
+  handleServing(player, playerSprite, pots) {
+    for (let pot of pots) {
+      // calculate distance between player and pot
+      const distance = Math.sqrt(
+        Math.pow(player.x - pot.x, 2) + Math.pow(player.y - pot.y, 2));
+      if (pot.readyToServe ===  true && distance < 60 && this.keys.interact.isDown && player.interactionTile == "dish") {
+        console.log("serving")
+        console.log(player.currentlyServing)
+        console.log(pot.readyToServe)
+        player.currentlyServing = true;
+        pot.readyToServe = false;
+        player.dishesServed += 1;
+        this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
+        this.ws.send(JSON.stringify({ type: "player", data: this.state.player1 }));
+
+  }
 }
+  }
 
   potInteraction(player, playerSprite, pots) {
     for (let pot of pots) {
