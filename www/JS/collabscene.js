@@ -40,6 +40,10 @@ export default class CollabScene extends Phaser.Scene {
         case "state":
           this.updatePlayer(this.otherPlayer, playerData.data.player2);
           break;
+        case "pots":
+          this.state.pots = playerData.data;
+          this.potOnionUpdate(this.state.pots, this.potImages);
+          break;
       }
     };
 
@@ -238,6 +242,7 @@ cookPot(pot, potImage) {
     if (pot.stage <= 3) {
       pot.cooking = true;
       pot.onions = 0;
+      pot.stage = 1;
       let index = pot.potNum;
         setTimeout(() => {
             potImage.setTexture("soups", "onion-cooking-" + pot.stage + ".png");
@@ -245,6 +250,10 @@ cookPot(pot, potImage) {
             console.log(this.state.pots);
             this.cookPot(pot, potImage); // Continue cooking process using 'this'
             this.state.pots[index] = pot
+            if (pot.stage === 4) {
+              pot.readyToServe = true;
+              pot.stage = 0;
+            }
             this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
         }, 2000);
     } else {

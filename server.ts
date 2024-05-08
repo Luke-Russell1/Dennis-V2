@@ -62,9 +62,11 @@ type Player = {
   y: number;
   status: "ready" | "notReady";
   direction: "SOUTH" | "NORTH" | "EAST" | "WEST";
+  currentlyServing: boolean;
   interactionTile: string | null;
   score: number;
   onionsAdded: number;
+  dishesServed: number;
   timestamp: number | Date;
 };
 
@@ -98,8 +100,10 @@ const state: State = {
     status: "ready",
     direction: "SOUTH",
     interactionTile: null,
+    currentlyServing: false,
     score: 0,
     onionsAdded: 0,
+    dishesServed: 0,
     timestamp: now.getTime(),
   },
   player2: {
@@ -108,8 +112,10 @@ const state: State = {
     status: "ready",
     direction: "SOUTH",
     interactionTile: null,
+    currentlyServing: false,
     score: 0,
     onionsAdded: 0,
+    dishesServed:0,
     timestamp: now.getTime(),
   },
   pots: potLocations,
@@ -124,8 +130,10 @@ const initialstate: initialState = {
     status: "ready",
     direction: "SOUTH",
     interactionTile: null,
+    currentlyServing: false,
     score: 0,
     onionsAdded: 0,
+    dishesServed: 0,
     timestamp: now.getTime(),
   },
   player2: {
@@ -134,8 +142,10 @@ const initialstate: initialState = {
     status: "ready",
     direction: "SOUTH",
     interactionTile: null,
+    currentlyServing: false,
     score: 0,
     onionsAdded: 0,
+    dishesServed: 0,
     timestamp: now.getTime(),
   },
   pots: potLocations,
@@ -175,6 +185,7 @@ function findPotLocations(levelFile: any, tileSize: number) {
           onions: 0,
           stage: 0,
           cooking: false,
+          readyToServe: false,
           potNum: potNum++,
         };
         // Push the pot object into the pots array
@@ -244,6 +255,17 @@ function send_playerData(player: "player1" | "player2") {
     console.log(initialstate);
   }
 }
+function sendPotData(player: "player1" | "player2") {
+  /*
+  This sends the pot data to the players. This is used to update the state of the pots on the players end. 
+  */
+  if (player === "player1" && connections.player1) {
+    connections.player1.send(JSON.stringify({ type: "pots", data: state.pots }));
+  }
+  if (player === "player2" && connections.player2) {
+    connections.player2.send(JSON.stringify({ type: "pots", data: state.pots }));
+  }
+} 
 wss.on("connection", function (ws) {
   /*
   On initial connection, the players are sent the intial state of the game. Player 1 and Player 2 are then assigned to the connections object based on who connected 
@@ -277,15 +299,21 @@ wss.on("connection", function (ws) {
         if (connections.player1 === ws) {
           applyToState("player1", playerData);
           send_Data("player2");
-        } else if (connections.player2 === ws) {
+        } 
+        if (connections.player2 === ws) {
           applyToState("player2", playerData);
           send_Data("player1");
         }
         break;
       case "pots":
-        const potData = data.data;
-        console.log("Pot data:", data.type);
-        console.log("Pot data:", data.data);
+        if (connections.player1 === ws) {
+          state.pots = data.data;
+          sendPotData("player2");
+        }
+        if (connections.player2 === ws) {
+          state.pots = data.data;
+          sendPotData("player1");
+        } 
         break;
     }
   });
