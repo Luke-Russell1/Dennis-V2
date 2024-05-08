@@ -186,6 +186,7 @@ function findPotLocations(levelFile: any, tileSize: number) {
           stage: 0,
           cooking: false,
           readyToServe: false,
+          resetPotImage:false,
           potNum: potNum++,
         };
         // Push the pot object into the pots array

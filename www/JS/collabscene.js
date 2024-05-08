@@ -132,7 +132,8 @@ export default class CollabScene extends Phaser.Scene {
     this.movePlayer(300, this.keys);
     this.potInteraction(this.state.player1, this.player, this.state.pots);
     this.potOnionUpdate(this.state.pots, this.potImages);
-    this.handleServing(this.state.player1, this.player, this.state.pots);
+    this.handleServing(this.state.player1, this.state.pots, this.potImages);
+    this.resetPotImage(this.state.pots, this.potImages);
   }
   movePlayer(speed, keys) {
     // Reset velocity
@@ -205,33 +206,47 @@ export default class CollabScene extends Phaser.Scene {
           JSON.stringify({ type: "player", data: this.state.player1 })
         );
       }
-      if (this.interactionInitiated && this.collision_tile == 5) {
-        this.state.player1.interactionTile = "serve";
-        this.ws.send(
-          JSON.stringify({ type: "player", data: this.state.player1 })
-        );
-      }
       if (this.interactionInitiated && this.collision_tile == 6) {
         this.state.player1.interactionTile = "tomato";
         this.ws.send(
           JSON.stringify({ type: "player", data: this.state.player1 })
         );
-        }
-        // specifically handles the interaction with a full pot
-       for (let pot of this.state.pots) {
-        const distance = Math.sqrt(
-          Math.pow(this.state.player1.x - pot.x, 2) + Math.pow(this.state.player1.y - pot.y, 2)
+      }
+      if (
+        this.interactionInitiated &&
+        this.collision_tile == 5 &&
+        this.state.player1.interactionTile == "soup-onion"
+      ) {
+        this.state.player1.interactionTile = null;
+        this.state.player1.dishesServed += 1;
+        this.state.player1.score += 5;
+        this.ws.send(
+          JSON.stringify({ type: "player", data: this.state.player1 })
         );
-        if (this.state.player1.interactionTile === "dish" && distance < 60 && pot.readyToServe === true) {
+      }
+      // specifically handles the interaction with a full pot
+      for (let pot of this.state.pots) {
+        const distance = Math.sqrt(
+          Math.pow(this.state.player1.x - pot.x, 2) +
+            Math.pow(this.state.player1.y - pot.y, 2)
+        );
+        if (
+          this.state.player1.interactionTile === "dish" &&
+          distance < 60 &&
+          pot.readyToServe === true
+        ) {
           this.state.player1.interactionTile = "soup-onion";
-          this.ws.send(JSON.stringify({ type: "player", data: this.state.player1 }));
+          this.state.player1.currentlyServing = true;
+          pot.resetPotImage = true;
+          this.ws.send(
+            JSON.stringify({ type: "player", data: this.state.player1 })
+          );
+          this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
           break;
-        
-       }
+        }
       }
     }
   }
-  
 
   potOnionUpdate(pots, potImages) {
     /*
@@ -273,25 +288,24 @@ export default class CollabScene extends Phaser.Scene {
       pot.cooking = false; // Cooking finished
     }
   }
-  handleServing(player, playerSprite, pots) {
+  handleServing(player, pots, potImages) {
     for (let pot of pots) {
-      // calculate distance between player and pot
-      const distance = Math.sqrt(
-        Math.pow(player.x - pot.x, 2) + Math.pow(player.y - pot.y, 2));
-      if (pot.readyToServe ===  true && distance < 60 && this.keys.interact.isDown && player.interactionTile == "dish") {
-        console.log("serving")
-        console.log(player.currentlyServing)
-        console.log(pot.readyToServe)
-        player.currentlyServing = true;
-        pot.readyToServe = false;
-        player.dishesServed += 1;
-        this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
-        this.ws.send(JSON.stringify({ type: "player", data: this.state.player1 }));
-
+      if (player.currentlyServing === true || pot.resetPotImage === true) {
+        console.log("resetting pot image");
+      }
+    }
   }
+  resetPotImage(pots, potImages) {
+    for (let i = 0; i < pots.length; i++) {
+        let pot = pots[i];
+        let potImage = potImages[i];
+        if (pot.resetPotImage) {
+            console.log("Resetting pot image");
+            potImage.setTexture("terrain", "pot.png"); 
+            pot.resetPotImage = false;
+        }
+    }
 }
-  }
-
   potInteraction(player, playerSprite, pots) {
     for (let pot of pots) {
       const distance = Math.sqrt(
