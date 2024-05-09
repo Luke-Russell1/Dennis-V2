@@ -247,12 +247,12 @@ function send_playerData(player: "player1" | "player2") {
   */
   if (player === "player1" && connections.player1) {
     initialstate.whichPlayer.name = "P1";
-    connections.player1.send(JSON.stringify(initialstate));
+    connections.player1.send(JSON.stringify({type: 'initialState', data: initialstate}));
     console.log(initialstate);
   }
   if (player === "player2" && connections.player2) {
     initialstate.whichPlayer.name = "P2";
-    connections.player2.send(JSON.stringify(initialstate));
+    connections.player2.send(JSON.stringify({type: 'initialState', data: initialstate}));
     console.log(initialstate);
   }
 }
@@ -266,23 +266,53 @@ function sendPotData(player: "player1" | "player2") {
   if (player === "player2" && connections.player2) {
     connections.player2.send(JSON.stringify({ type: "pots", data: state.pots }));
   }
-} 
+}
+function startTrialTimer() {
+  const timerDuration = 45 * 1000; // 45 seconds
+
+  // Emit a message to clients to start the timer
+  connections.player1?.send(JSON.stringify({ type: "timer", data: "start" }));
+  connections.player2?.send(JSON.stringify({ type: "timer", data: "start" }));
+  console.log('timer starter')
+
+  // Start the timer on the server side
+  const timer = setTimeout(() => {
+    // Perform any actions you want to take after the timer expires
+    console.log("Timer expired after 45 seconds!");
+
+    // Emit a message to clients indicating that the timer has expired
+    connections.player1?.send(JSON.stringify({ type: "timer", data: "expired" }));
+    connections.player2?.send(JSON.stringify({ type: "timer", data: "expired" }));
+    console.log('timer ended')
+
+    // Clear the timer if it's no longer needed
+    clearTimeout(timer);
+  }, timerDuration);
+}
 wss.on("connection", function (ws) {
-  /*
-  On initial connection, the players are sent the intial state of the game. Player 1 and Player 2 are then assigned to the connections object based on who connected 
-  first and who connected second. 
-  */
   if (connections.player1 === null) {
     connections.player1 = ws;
     console.log("Player 1 connected");
-    // Send only the relevant data to player 1
-    send_playerData("player1");
   } else if (connections.player2 === null) {
     connections.player2 = ws;
-    console.log("Player 2 connected");
-    // Send only the relevant data to player 2
-    send_playerData("player2");
-  } else {
+    console.log("Player 2 connected");  
+    // Check if both players are not connected
+  }
+    if (!connections.player1 || !connections.player2) {
+      if (connections.player1) {
+        // Emit a message to player 1 to wait for player 2 to connect
+        connections.player1.send(JSON.stringify({ type: "waiting", data: "Waiting for player 2 to connect..." }));
+      }
+      if (connections.player2) {
+        // Emit a message to player 2 to wait for player 1 to connect
+        connections.player2.send(JSON.stringify({ type: "waiting", data: "Waiting for player 1 to connect..." }));
+      }
+    }
+      // If both players are connected, send instructions to both
+      if (connections.player1 && connections.player2) {
+        connections.player1.send(JSON.stringify({ type: "instructions", data: "start instruction"}));
+        connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction"}));
+      } else {
     console.error("No available player slots");
   }
 
@@ -316,6 +346,10 @@ wss.on("connection", function (ws) {
           sendPotData("player1");
         } 
         break;
+        case 'startBlock':
+        send_playerData("player1");
+        send_playerData("player2");
+        break;
     }
   });
 
@@ -327,5 +361,4 @@ wss.on("connection", function (ws) {
   ws.on("error", console.error);
 
   // send the state
-  ws.send(JSON.stringify(state));
 });

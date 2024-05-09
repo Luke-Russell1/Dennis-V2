@@ -1,4 +1,5 @@
 import CollabScene from "./collabscene.js";
+import waitingRoom from "./waitingRoom.js";
 
 var config = {
   fps: {
@@ -9,7 +10,7 @@ var config = {
   width: 20 * 45,
   height: 16 * 45,
   pixelArt: true,
-  parent: "index",
+  parent: "main",
   physics: {
     default: "arcade",
     arcade: {
@@ -28,11 +29,24 @@ class Game extends Phaser.Game {
     this.initialState = {};
     this.ws.onopen = () => {
       console.log("Connected to server");
+
     };
     this.ws.onmessage = (event) => {
-      let data = JSON.parse(event.data.toString());
-      Object.assign(this.initialState, data);
-      console.log(this.initialState);
+      let data = JSON.parse(event.data);
+      console.log("Received message:", data);
+      switch(data.type) {
+        case "waiting":
+          console.log("Waiting for another player to join...");
+          this.scene.add("waitingRoom", waitingRoom);
+          this.scene.start("waitingRoom");
+          break;
+        case 'instructions':
+            console.log(instructions);
+        case 'initialState':
+          console.log("Received initial state");
+          Object.assign(this.initialState, data.data);
+          break;
+      }
     };
     this.ws.onclose = () => {
       console.log("Disconnected from server");
@@ -41,13 +55,7 @@ class Game extends Phaser.Game {
       console.error("WebSocket error:", error);
     };
 
-    // Start the scene
-    this.scene.add(
-      "CollabScene",
-      new CollabScene({ initialState: this.initialState, ws: this.ws })
-    );
-    this.scene.start("CollabScene");
-  }
+    }
 }
 
 window.onload = function () {

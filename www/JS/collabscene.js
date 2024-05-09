@@ -133,7 +133,7 @@ export default class CollabScene extends Phaser.Scene {
     // Adding the score text to the screen
     this.teamScore = this.state.player1.score + this.state.player2.score;
     this.scoreText = this.add.text(10, 10, "Score: " + this.teamScore, {
-      fontSize: "20px",
+      fontSize: "px",
       fill: "#000",
     });
   }
