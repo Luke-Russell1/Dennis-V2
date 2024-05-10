@@ -66,7 +66,6 @@ export default class CollabScene extends Phaser.Scene {
       interact: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
       DRT: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
     };
-    console.log(this.initialState);
     // creates map and adds tilesets
     this.map = this.make.tilemap({
       key: "map",

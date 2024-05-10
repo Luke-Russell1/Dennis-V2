@@ -1,5 +1,6 @@
 import CollabScene from "./collabscene.js";
 import waitingRoom from "./waitingRoom.js";
+import instructions from "./instructions.js";
 
 var config = {
   fps: {
@@ -33,7 +34,6 @@ class Game extends Phaser.Game {
     };
     this.ws.onmessage = (event) => {
       let data = JSON.parse(event.data);
-      console.log("Received message:", data);
       switch(data.type) {
         case "waiting":
           console.log("Waiting for another player to join...");
@@ -41,10 +41,16 @@ class Game extends Phaser.Game {
           this.scene.start("waitingRoom");
           break;
         case 'instructions':
-            console.log(instructions);
+            this.scene.add("instructions", new instructions({ws:this.ws}));
+            this.scene.start("instructions");
+            break;
         case 'initialState':
           console.log("Received initial state");
+          this.scene.stop("instructions");
           Object.assign(this.initialState, data.data);
+          console.log(this.initialState);
+          this.scene.add("CollabScene", new CollabScene({initialState: this.initialState, ws: this.ws}));
+          this.scene.start("CollabScene");
           break;
       }
     };

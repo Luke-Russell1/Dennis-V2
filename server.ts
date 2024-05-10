@@ -289,6 +289,8 @@ function startTrialTimer() {
     clearTimeout(timer);
   }, timerDuration);
 }
+let p1Ready = false;
+let p2Ready = false;
 wss.on("connection", function (ws) {
   if (connections.player1 === null) {
     connections.player1 = ws;
@@ -315,7 +317,6 @@ wss.on("connection", function (ws) {
       } else {
     console.error("No available player slots");
   }
-
   ws.on("message", function message(m) {
     /*
     On message, this checks what type of message it is:
@@ -325,6 +326,22 @@ wss.on("connection", function (ws) {
     */
     const data = JSON.parse(m.toString("utf-8"));
     switch (data.type) {
+      case 'startGame':
+        if (connections.player1 === ws) {
+          p1Ready = true;
+          console.log(p1Ready, p2Ready);
+        }
+        if (connections.player2 === ws) {
+          p2Ready = true;
+          console.log(p1Ready, p2Ready);
+
+        }
+        if (connections.player1 && connections.player2 && p1Ready && p2Ready) {
+          console.log(p1Ready, p2Ready);
+          send_playerData("player1");
+          send_playerData("player2");
+        }
+        break;
       case "player":
         const playerData = data.data as Player;
         if (connections.player1 === ws) {
@@ -346,9 +363,17 @@ wss.on("connection", function (ws) {
           sendPotData("player1");
         } 
         break;
-        case 'startBlock':
-        send_playerData("player1");
-        send_playerData("player2");
+        case 'startGame':
+          if (connections.player1 === ws) {
+            p1Ready = true;
+          }
+          if (connections.player2 === ws) {
+            p2Ready = true;
+          }
+          if (p1Ready && p2Ready) {
+          send_playerData("player1");
+          send_playerData("player2");
+          }
         break;
     }
   });
