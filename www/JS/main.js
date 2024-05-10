@@ -30,9 +30,15 @@ class Game extends Phaser.Game {
     this.initialState = {};
     this.ws.onopen = () => {
       console.log("Connected to server");
-
     };
     this.ws.onmessage = (event) => {
+      /*
+      This handles the messages that are sent from the server. It will check the type of message and then act accordingly
+      waiting: This is the waiting room (waiting.js) that they use while the other player is connecting
+      instructions: This is the instructions screen (instructions.js) that they use to read the instructions
+      initialState: This is the initial state of the game that is sent to the client, and calls the game (collabscene.js)
+                    to start. WILL PROBABLY NEED TO CHANGE THIS AS WELL TO DEAL WITH COLLAB AND SEP
+      */
       let data = JSON.parse(event.data);
       switch(data.type) {
         case "waiting":
@@ -47,6 +53,7 @@ class Game extends Phaser.Game {
         case 'initialState':
           console.log("Received initial state");
           this.scene.stop("instructions");
+          // feeds initial state into the CollabScene constructor
           Object.assign(this.initialState, data.data);
           console.log(this.initialState);
           this.scene.add("CollabScene", new CollabScene({initialState: this.initialState, ws: this.ws}));

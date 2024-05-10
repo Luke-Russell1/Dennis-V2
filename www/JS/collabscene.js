@@ -35,7 +35,7 @@ export default class CollabScene extends Phaser.Scene {
     this.ws = this.game.ws;
     this.state = this.initialState;
     this.trialTime = 45;
-    this.ws.send(JSON.stringify({type: 'CollabSceneReady'}));
+    this.ws.send(JSON.stringify({ type: "CollabSceneReady" }));
     this.ws.onmessage = (event) => {
       let playerData = JSON.parse(event.data);
       /*
@@ -44,14 +44,19 @@ export default class CollabScene extends Phaser.Scene {
             and when it expires pauses movement. 
       State: Updates other player position, updates their state and updates the score
       Pots: Updates the pots on the map and the images of the environment
+
       */
       switch (playerData.type) {
         case "timer":
           if (playerData.data === "start") {
             this.trialBegin = true;
+            this.breakRectangle.setAlpha(0);
+            this.breakText.setAlpha(0);
           }
           if (playerData.data === "end") {
             this.trialBegin = false;
+            this.breakRectangle.setAlpha(1);
+            this.breakText.setAlpha(1);
           }
           break;
         case "state":
@@ -137,7 +142,6 @@ export default class CollabScene extends Phaser.Scene {
       "SOUTH-bluehat.png"
     );
     // sets other player red PLACEHOLDER
-    this.physics.world.createDebugGraphic();
     // enables collision with map and player
     this.physics.add.collider(this.player, this.layer);
     this.physics.add.collider(this.otherPlayer, this.layer);
@@ -152,15 +156,34 @@ export default class CollabScene extends Phaser.Scene {
       fontSize: "18px",
       fill: "#000",
     });
-    this.countdownText = this.add.text(400, 300, '', { fontSize: '32px', fill: '#ffffff' });
+    // below deals with what is shown between breaks
+    this.breakRectangle = this.add.rectangle(
+      this.game.config.width,
+      this.game.config.height,
+      this.game.config.width,
+      this.game.config.height,
+      0xffffff
+    )
+    let breakScreenText = "Break Time! \n team Score: " + this.teamScore + "\n Your Score: " + this.state.player1.score + "\n Teammate's Score: " + this.state.player2.score + "\n Press Space to continue"
+    this.breakRectangle.setAlpha(0);
+    this.breakRectangle.setOrigin(1, 1);
+    this.breakText = this.add.text(
+      this.game.config.width / 2,
+      this.game.config.height / 2,
+      breakScreenText,
+      { fontSize: "32px", fill: "#000" }
+    );
+    this.breakText.setOrigin(0.5, 0.5);
+    this.breakText.setAlpha(0);
 
-        // Create a timer event that repeats every second (1000 ms)
-        this.timer = this.time.addEvent({
-            delay: 1000,
-            callback: this.trialTimer,
-            callbackScope: this,
-            loop: true
-        });
+
+    // Create a timer event that repeats every second (1000 ms)
+    this.timer = this.time.addEvent({
+      delay: 1000,
+      callback: this.trialTimer,
+      callbackScope: this,
+      loop: true,
+    });
   }
   update() {
     // moves player
@@ -174,15 +197,15 @@ export default class CollabScene extends Phaser.Scene {
   beginTrial(trialBegin) {
     // Check if the message data is about starting the trial
     if (trialBegin) {
-        this.allowMovement = true; // Set allowMovement to true
-        this.timer.paused = false; // Unpause the timer
+      this.allowMovement = true; // Set allowMovement to true
+      this.timer.paused = false; // Unpause the timer
     }
     // Check if the message data is about ending the trial
     if (!trialBegin) {
-        this.allowMovement = false; // Set allowMovement to false
-        this.timer.paused = true; // Pause the timer
+      this.allowMovement = false; // Set allowMovement to false
+      this.timer.paused = true; // Pause the timer
     }
-}
+  }
   trialTimer() {
     this.trialTime--; // Decrease the trial time
     this.timerText.setText("Time: " + this.trialTime); // Update the timer text
@@ -194,41 +217,53 @@ export default class CollabScene extends Phaser.Scene {
   }
 
   movePlayer(speed, keys, allowMovement) {
-    if(!allowMovement) {
+    /*
+    This function moves the player based on the keys that are pressed. The player will move in the direction
+    that the key is pressed. The player will not move if allowMovement is set to false. This is set to false when the trial
+    is not running/timer ends. 
+    updatePlayerImage is called when the player moves to update the image of the player based on the direction they are facing
+    and the tile they are interacting with. This is then sent to the server so that it can be emitted to the other player.
+    */
+    if (!allowMovement) {
       return;
-    } 
+    }
     if (allowMovement) {
-    // Reset velocity
-    this.player.body.setVelocity(0);
-    // Set velocity based on pressed keys
-    if (keys.left.isDown) {
-      this.player.body.setVelocityX(-speed);
-      this.state.player1.direction = "WEST";
+      // Reset velocity
+      this.player.body.setVelocity(0);
+      // Set velocity based on pressed keys
+      if (keys.left.isDown) {
+        this.player.body.setVelocityX(-speed);
+        this.state.player1.direction = "WEST";
+      }
+      if (keys.right.isDown) {
+        this.player.body.setVelocityX(speed);
+        this.state.player1.direction = "EAST";
+      }
+      if (keys.up.isDown) {
+        this.player.body.setVelocityY(-speed);
+        this.state.player1.direction = "NORTH";
+      }
+      if (keys.down.isDown) {
+        this.player.body.setVelocityY(speed);
+        this.state.player1.direction = "SOUTH";
+      }
+      // Update player image and position
+      this.updatePlayerImage(
+        this.player,
+        this.state.player1.direction,
+        this.state.player1.interactionTile
+      );
+      this.state.player1.x = this.player.x;
+      this.state.player1.y = this.player.y;
+      this.ws.send(
+        JSON.stringify({ type: "player", data: this.state.player1 })
+      );
     }
-    if (keys.right.isDown) {
-      this.player.body.setVelocityX(speed);
-      this.state.player1.direction = "EAST";
-    }
-    if (keys.up.isDown) {
-      this.player.body.setVelocityY(-speed);
-      this.state.player1.direction = "NORTH";
-    }
-    if (keys.down.isDown) {
-      this.player.body.setVelocityY(speed);
-      this.state.player1.direction = "SOUTH";
-    }
-    // Update player image and position
-    this.updatePlayerImage(
-      this.player,
-      this.state.player1.direction,
-      this.state.player1.interactionTile
-    );
-    this.state.player1.x = this.player.x;
-    this.state.player1.y = this.player.y;
-    this.ws.send(JSON.stringify({ type: "player", data: this.state.player1 }));
   }
-}
   updatePlayer(player, playerData) {
+    /*
+    This is called to update the position and image of the other player. This is called above when a message is recieved from the server. 
+    */
     player.x = playerData.x;
     player.y = playerData.y;
     this.updatePlayerImage(
@@ -329,6 +364,9 @@ export default class CollabScene extends Phaser.Scene {
   potOnionUpdate(pots, potImages) {
     /*
     This updates the image of the pot to reflect the number of onions currently in there. 
+    it loops through the pot array and checks the number of onions in the pot. If the number of onions
+    is less than or equal to 3, the image is updated to reflect the number of onions in the pot.
+    If the pot has 3 onions, the cooking process is started.
     */
     for (let i = 0; i < pots.length; i++) {
       let pot = pots[i];
@@ -390,13 +428,17 @@ export default class CollabScene extends Phaser.Scene {
     /*
     This function updates the score based on the state of the player. The overall state is fed in
     then the player score and the other player score are updated. The team score is calculated by adding them
-    both and updated accordingly.
+    both and updated accordingly. Additionally, update the breakText content to reflect the new scores.
     */
     this.playerScore = state.player1.score;
     this.otherPlayerScore = state.player2.score;
     this.teamScore = this.playerScore + this.otherPlayerScore;
     this.scoreText.setText("Score: " + this.teamScore);
-  }
+
+    // Update breakText content
+    let breakScreenText = "Break Time! \n team Score: " + this.teamScore + "\n Your Score: " + this.playerScore + "\n Teammate's Score: " + this.otherPlayerScore + "\n Press Space to continue";
+    this.breakText.setText(breakScreenText);
+}
   potInteraction(player, playerSprite, pots) {
     /*
     Handles the interactions between the player and the pots. If the player is close enough to the pot

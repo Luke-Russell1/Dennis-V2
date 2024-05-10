@@ -79,6 +79,7 @@ type initialState = {
   timestamp: number | Date;
 };
 type State = {
+  trialNo:number;
   stage: Stage;
   player1: Player;
   player2: Player;
@@ -94,6 +95,7 @@ console.log("Pots:", potLocations);
 
 const state: State = {
   stage: { name: "game" },
+  trialNo: 1,
   player1: {
     x: 8 * 45,
     y: 8 * 45,
@@ -268,7 +270,7 @@ function sendPotData(player: "player1" | "player2") {
   }
 }
 function startTrialTimer() {
-  const timerDuration = 45 * 1000; // 45 seconds
+  const timerDuration = 15 * 1000; // 45 seconds
 
   // Emit a message to clients to start the timer
   connections.player1?.send(JSON.stringify({ type: "timer", data: "start" }));
