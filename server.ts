@@ -281,8 +281,8 @@ function startTrialTimer() {
     console.log("Timer expired after 45 seconds!");
 
     // Emit a message to clients indicating that the timer has expired
-    connections.player1?.send(JSON.stringify({ type: "timer", data: "expired" }));
-    connections.player2?.send(JSON.stringify({ type: "timer", data: "expired" }));
+    connections.player1?.send(JSON.stringify({ type: "timer", data: "end" }));
+    connections.player2?.send(JSON.stringify({ type: "timer", data: "end" }));
     console.log('timer ended')
 
     // Clear the timer if it's no longer needed
@@ -299,8 +299,9 @@ wss.on("connection", function (ws) {
     connections.player2 = ws;
     console.log("Player 2 connected");  
     // Check if both players are not connected
-  }
-    if (!connections.player1 || !connections.player2) {
+  } else {
+    console.error("No available player slots");
+  }if (!connections.player1 || !connections.player2) {
       if (connections.player1) {
         // Emit a message to player 1 to wait for player 2 to connect
         connections.player1.send(JSON.stringify({ type: "waiting", data: "Waiting for player 2 to connect..." }));
@@ -314,8 +315,7 @@ wss.on("connection", function (ws) {
       if (connections.player1 && connections.player2) {
         connections.player1.send(JSON.stringify({ type: "instructions", data: "start instruction"}));
         connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction"}));
-      } else {
-    console.error("No available player slots");
+      
   }
   ws.on("message", function message(m) {
     /*
@@ -334,13 +334,15 @@ wss.on("connection", function (ws) {
         if (connections.player2 === ws) {
           p2Ready = true;
           console.log(p1Ready, p2Ready);
-
         }
         if (connections.player1 && connections.player2 && p1Ready && p2Ready) {
           console.log(p1Ready, p2Ready);
           send_playerData("player1");
           send_playerData("player2");
         }
+        break;
+      case 'CollabSceneReady':
+        startTrialTimer();
         break;
       case "player":
         const playerData = data.data as Player;

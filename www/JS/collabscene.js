@@ -34,14 +34,26 @@ export default class CollabScene extends Phaser.Scene {
   create() {
     this.ws = this.game.ws;
     this.state = this.initialState;
+    this.trialTime = 45;
+    this.ws.send(JSON.stringify({type: 'CollabSceneReady'}));
     this.ws.onmessage = (event) => {
       let playerData = JSON.parse(event.data);
       /*
       On message we check for the TYPE of data that is being sent. If:
+      Timer: Begins the trial. THis calls a function that starts the clock on the client side
+            and when it expires pauses movement. 
       State: Updates other player position, updates their state and updates the score
       Pots: Updates the pots on the map and the images of the environment
       */
       switch (playerData.type) {
+        case "timer":
+          if (playerData.data === "start") {
+            this.trialBegin = true;
+          }
+          if (playerData.data === "end") {
+            this.trialBegin = false;
+          }
+          break;
         case "state":
           this.updatePlayer(this.otherPlayer, playerData.data.player2);
           this.updateState(this.state, playerData.data.player2);
@@ -132,19 +144,60 @@ export default class CollabScene extends Phaser.Scene {
     // Adding the score text to the screen
     this.teamScore = this.state.player1.score + this.state.player2.score;
     this.scoreText = this.add.text(10, 10, "Score: " + this.teamScore, {
-      fontSize: "px",
+      fontSize: "18px",
       fill: "#000",
     });
+    // adds the countdown timer to the screen
+    this.timerText = this.add.text(10, 30, "Time: ", {
+      fontSize: "18px",
+      fill: "#000",
+    });
+    this.countdownText = this.add.text(400, 300, '', { fontSize: '32px', fill: '#ffffff' });
+
+        // Create a timer event that repeats every second (1000 ms)
+        this.timer = this.time.addEvent({
+            delay: 1000,
+            callback: this.trialTimer,
+            callbackScope: this,
+            loop: true
+        });
   }
   update() {
     // moves player
     this.tileInteraction();
-    this.movePlayer(300, this.keys);
+    this.beginTrial(this.trialBegin);
+    this.movePlayer(300, this.keys, this.allowMovement);
     this.potInteraction(this.state.player1, this.player, this.state.pots);
     this.potOnionUpdate(this.state.pots, this.potImages);
     this.resetPotImage(this.state.pots, this.potImages);
   }
-  movePlayer(speed, keys) {
+  beginTrial(trialBegin) {
+    // Check if the message data is about starting the trial
+    if (trialBegin) {
+        this.allowMovement = true; // Set allowMovement to true
+        this.timer.paused = false; // Unpause the timer
+    }
+    // Check if the message data is about ending the trial
+    if (!trialBegin) {
+        this.allowMovement = false; // Set allowMovement to false
+        this.timer.paused = true; // Pause the timer
+    }
+}
+  trialTimer() {
+    this.trialTime--; // Decrease the trial time
+    this.timerText.setText("Time: " + this.trialTime); // Update the timer text
+    // Check if the trial time has reached 0
+    if (this.trialTime === 0) {
+      this.allowMovement = false;
+      this.timer.remove(false); // Stop the timer
+    }
+  }
+
+  movePlayer(speed, keys, allowMovement) {
+    if(!allowMovement) {
+      return;
+    } 
+    if (allowMovement) {
     // Reset velocity
     this.player.body.setVelocity(0);
     // Set velocity based on pressed keys
@@ -174,6 +227,7 @@ export default class CollabScene extends Phaser.Scene {
     this.state.player1.y = this.player.y;
     this.ws.send(JSON.stringify({ type: "player", data: this.state.player1 }));
   }
+}
   updatePlayer(player, playerData) {
     player.x = playerData.x;
     player.y = playerData.y;
@@ -204,7 +258,6 @@ export default class CollabScene extends Phaser.Scene {
     } else {
       player.setFrame(direction + "-" + interactionTile + ".png");
     }
-    console.log("player image updated");
   }
   tileInteraction() {
     /*
