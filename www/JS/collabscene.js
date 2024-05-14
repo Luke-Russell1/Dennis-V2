@@ -2,15 +2,6 @@ const envConstants = {
   tileSize: 45,
 };
 
-const startPos1 = {
-  x: 8 * envConstants.tileSize,
-  y: 8 * envConstants.tileSize,
-};
-const startPos2 = {
-  x: 10 * envConstants.tileSize,
-  y: 8 * envConstants.tileSize,
-};
-
 export default class CollabScene extends Phaser.Scene {
   constructor(config) {
     super("CollabScene");
@@ -41,11 +32,15 @@ export default class CollabScene extends Phaser.Scene {
       /*
       On message we check for the TYPE of data that is being sent. If:
       Timer: Begins the trial. THis calls a function that starts the clock on the client side
-            and when it expires pauses movement. 
+            and when it expires pauses movement. On start it hides the white rectangle and break text
+            on end it shows the white rectangle and break text with players scores etc.
+      Reset: Resets the game state to the initial state. This is called when the break between 
+            trials is over.
       State: Updates other player position, updates their state and updates the score
       Pots: Updates the pots on the map and the images of the environment
 
       */
+     console.log(playerData.type);
       switch (playerData.type) {
         case "timer":
           if (playerData.data === "start") {
@@ -57,7 +52,19 @@ export default class CollabScene extends Phaser.Scene {
             this.trialBegin = false;
             this.breakRectangle.setAlpha(1);
             this.breakText.setAlpha(1);
+            this.state.trialNo += .5;
+
           }
+          break;
+        case "reset":
+          console.log(playerData.data);
+          this.state = playerData.data;
+
+          this.trialTime = 45;
+          // Reset player positions to initial positions
+          this.updatePlayer(this.player, this.state.player1);
+          this.updatePlayer(this.otherPlayer, this.state.player2);
+          console.log(this.state);
           break;
         case "state":
           this.updatePlayer(this.otherPlayer, playerData.data.player2);
@@ -152,7 +159,7 @@ export default class CollabScene extends Phaser.Scene {
       fill: "#000",
     });
     // adds the countdown timer to the screen
-    this.timerText = this.add.text(10, 30, "Time: ", {
+    this.timerText = this.add.text(10, 30, "Time: " + 45, {
       fontSize: "18px",
       fill: "#000",
     });
@@ -163,19 +170,17 @@ export default class CollabScene extends Phaser.Scene {
       this.game.config.width,
       this.game.config.height,
       0xffffff
-    )
-    let breakScreenText = "Break Time! \n team Score: " + this.teamScore + "\n Your Score: " + this.state.player1.score + "\n Teammate's Score: " + this.state.player2.score + "\n Press Space to continue"
+    );
     this.breakRectangle.setAlpha(0);
     this.breakRectangle.setOrigin(1, 1);
     this.breakText = this.add.text(
       this.game.config.width / 2,
       this.game.config.height / 2,
-      breakScreenText,
-      { fontSize: "32px", fill: "#000" }
+      "",
+      { fontFamily: "Arial, sans serif", fontSize: "24px", fill: "#000" }
     );
     this.breakText.setOrigin(0.5, 0.5);
     this.breakText.setAlpha(0);
-
 
     // Create a timer event that repeats every second (1000 ms)
     this.timer = this.time.addEvent({
@@ -189,33 +194,11 @@ export default class CollabScene extends Phaser.Scene {
     // moves player
     this.tileInteraction();
     this.beginTrial(this.trialBegin);
-    this.movePlayer(300, this.keys, this.allowMovement);
+    this.movePlayer(100, this.keys, this.allowMovement);
     this.potInteraction(this.state.player1, this.player, this.state.pots);
     this.potOnionUpdate(this.state.pots, this.potImages);
     this.resetPotImage(this.state.pots, this.potImages);
   }
-  beginTrial(trialBegin) {
-    // Check if the message data is about starting the trial
-    if (trialBegin) {
-      this.allowMovement = true; // Set allowMovement to true
-      this.timer.paused = false; // Unpause the timer
-    }
-    // Check if the message data is about ending the trial
-    if (!trialBegin) {
-      this.allowMovement = false; // Set allowMovement to false
-      this.timer.paused = true; // Pause the timer
-    }
-  }
-  trialTimer() {
-    this.trialTime--; // Decrease the trial time
-    this.timerText.setText("Time: " + this.trialTime); // Update the timer text
-    // Check if the trial time has reached 0
-    if (this.trialTime === 0) {
-      this.allowMovement = false;
-      this.timer.remove(false); // Stop the timer
-    }
-  }
-
   movePlayer(speed, keys, allowMovement) {
     /*
     This function moves the player based on the keys that are pressed. The player will move in the direction
@@ -379,8 +362,7 @@ export default class CollabScene extends Phaser.Scene {
         potImage.stage = 1;
         this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
         this.cookPot(pot, potImage);
-        console.log(this.state.pots);
-      }
+     }
     }
   }
   cookPot(pot, potImage) {
@@ -396,7 +378,6 @@ export default class CollabScene extends Phaser.Scene {
       setTimeout(() => {
         potImage.setTexture("soups", "onion-cooking-" + pot.stage + ".png");
         pot.stage++;
-        console.log(this.state.pots);
         this.cookPot(pot, potImage); // Continue cooking process using 'this'
         this.state.pots[index] = pot;
         if (pot.stage === 4) {
@@ -418,7 +399,6 @@ export default class CollabScene extends Phaser.Scene {
       let pot = pots[i];
       let potImage = potImages[i];
       if (pot.resetPotImage) {
-        console.log("Resetting pot image");
         potImage.setTexture("terrain", "pot.png");
         pot.resetPotImage = false;
       }
@@ -436,9 +416,16 @@ export default class CollabScene extends Phaser.Scene {
     this.scoreText.setText("Score: " + this.teamScore);
 
     // Update breakText content
-    let breakScreenText = "Break Time! \n team Score: " + this.teamScore + "\n Your Score: " + this.playerScore + "\n Teammate's Score: " + this.otherPlayerScore + "\n Press Space to continue";
+    let breakScreenText =
+      " Break Time! \n team Score: " +
+      this.teamScore +
+      "\n Your Score: " +
+      this.playerScore +
+      "\n Teammate's Score: " +
+      this.otherPlayerScore +
+      "\n Have a 10 second break!";
     this.breakText.setText(breakScreenText);
-}
+  }
   potInteraction(player, playerSprite, pots) {
     /*
     Handles the interactions between the player and the pots. If the player is close enough to the pot
@@ -452,7 +439,7 @@ export default class CollabScene extends Phaser.Scene {
         Math.pow(player.x - pot.x, 2) + Math.pow(player.y - pot.y, 2)
       );
       if (
-        distance <= 60 &&
+        distance <= 45 &&
         player.interactionTile === "onion" &&
         this.keys.interact.isDown
       ) {
@@ -470,6 +457,7 @@ export default class CollabScene extends Phaser.Scene {
             player.onionAdded += 1;
             player.score += 2;
             this.updatePlayerImage(playerSprite, player.direction, null);
+            player.interactionTile = null;
             this.ws.send(
               JSON.stringify({ type: "player", data: this.state.player1 })
             );
@@ -486,5 +474,29 @@ export default class CollabScene extends Phaser.Scene {
         }
       }
     }
+  }
+  beginTrial(trialBegin) {
+    // Check if the message data is about starting the trial
+    if (trialBegin) {
+      this.allowMovement = true; // Set allowMovement to true
+      this.timer.paused = false; // Unpause the timer
+    }
+    // Check if the message data is about ending the trial
+    if (!trialBegin) {
+      this.allowMovement = false; // Set allowMovement to false
+      this.timer.paused = true; // Pause the timer
+    }
+  }
+  trialTimer() {
+    this.trialTime--; // Decrease the trial time
+    this.timerText.setText("Time: " + this.trialTime); // Update the timer text
+    // Check if the trial time has reached 0
+    if (this.trialTime === 0) {
+      this.allowMovement = false;
+      this.timer.remove(false); // Stop the timer
+    }
+  }
+  resetENV() {
+    // Reset state and trialTime
   }
 }

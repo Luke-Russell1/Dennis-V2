@@ -1,3 +1,4 @@
+import { clear } from "console";
 import express from "express";
 import { stat } from "fs";
 import { send } from "process";
@@ -35,7 +36,13 @@ Below is just declaring the different types and variables that are being used an
     This is also used to determine what the player sees.
 
 */
-
+const expConsts = {
+  trialLength: 45, 
+  breakLength: 20,
+  trials: 12,
+  tileSize: 45,
+  levelFile: "www/layouts/layout_1V2.csv",
+}
 const connections: {
   player1: WebSocket | null;
   player2: WebSocket | null;
@@ -71,7 +78,7 @@ type Player = {
 };
 
 type initialState = {
-  whichPlayer: WhichPlayer;
+  trialNo:number;
   stage: Stage;
   player1: Player;
   player2: Player;
@@ -88,11 +95,7 @@ type State = {
 };
 
 const now = new Date();
-const levelFile = "www/layouts/layout_1V2.csv";
-const tileSize = 45;
-const potLocations = findPotLocations(levelFile, tileSize);
-console.log("Pots:", potLocations);
-
+const potLocations = findPotLocations(expConsts.levelFile, expConsts.tileSize);
 const state: State = {
   stage: { name: "game" },
   trialNo: 1,
@@ -124,8 +127,8 @@ const state: State = {
   timestamp: now,
 };
 const initialstate: initialState = {
-  whichPlayer: { name: "null" },
   stage: { name: "game" },
+  trialNo: 1,
   player1: {
     x: 8 * 45,
     y: 8 * 45,
@@ -248,14 +251,14 @@ function send_playerData(player: "player1" | "player2") {
   This sends initial states to the players only
   */
   if (player === "player1" && connections.player1) {
-    initialstate.whichPlayer.name = "P1";
     connections.player1.send(JSON.stringify({type: 'initialState', data: initialstate}));
     console.log(initialstate);
   }
   if (player === "player2" && connections.player2) {
-    initialstate.whichPlayer.name = "P2";
-    connections.player2.send(JSON.stringify({type: 'initialState', data: initialstate}));
-    console.log(initialstate);
+    let player2State = Object.assign({}, initialstate);
+    player2State.player1 = initialstate.player2;
+    player2State.player2 = initialstate.player1;
+    connections.player2.send(JSON.stringify({type: 'initialState', data: player2State}));
   }
 }
 function sendPotData(player: "player1" | "player2") {
@@ -270,12 +273,12 @@ function sendPotData(player: "player1" | "player2") {
   }
 }
 function startTrialTimer() {
-  const timerDuration = 15 * 1000; // 45 seconds
+  const timerDuration = expConsts.trialLength * 1000; // 45 seconds
 
   // Emit a message to clients to start the timer
   connections.player1?.send(JSON.stringify({ type: "timer", data: "start" }));
   connections.player2?.send(JSON.stringify({ type: "timer", data: "start" }));
-  console.log('timer starter')
+  console.log('trial started')
 
   // Start the timer on the server side
   const timer = setTimeout(() => {
@@ -285,12 +288,40 @@ function startTrialTimer() {
     // Emit a message to clients indicating that the timer has expired
     connections.player1?.send(JSON.stringify({ type: "timer", data: "end" }));
     connections.player2?.send(JSON.stringify({ type: "timer", data: "end" }));
-    console.log('timer ended')
-
+    console.log('trial ended')
+    // trial number is .5 because two messages are recieved for each trial
+    state.trialNo += .5;
+    startBreak();
     // Clear the timer if it's no longer needed
     clearTimeout(timer);
   }, timerDuration);
 }
+function resetPlayerData(player: "player1" | "player2") {
+  if (connections.player1 && player === "player1") {
+    let resetState = Object.assign({}, initialstate);
+    resetState.trialNo = state.trialNo;
+    connections.player1.send(JSON.stringify({ type: "reset", data: resetState}));
+  }
+  if (connections.player2 && player === "player2") {
+    let resetState = Object.assign({}, initialstate);
+    resetState.trialNo = state.trialNo;
+    resetState.player1 = initialstate.player2;
+    resetState.player2 = initialstate.player1;
+    connections.player2.send(JSON.stringify({ type: "reset", data: resetState}));
+  }
+}
+function startBreak() {
+  const breakTime = expConsts.breakLength*1000; // 20 seconds
+  console.log("break started")
+  const breakTimer = setTimeout(() => {
+    console.log("break ended")
+    startTrialTimer();
+    clearTimeout(breakTimer);
+    resetPlayerData("player1");
+    resetPlayerData("player2");
+
+
+}, breakTime)};
 let p1Ready = false;
 let p2Ready = false;
 wss.on("connection", function (ws) {
