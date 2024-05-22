@@ -28,6 +28,7 @@ class Game extends Phaser.Game {
     // Initialize WebSocket connection
     this.ws = new WebSocket("ws://localhost:3000/coms");
     this.initialState = {};
+    this.conditions = []
     this.ws.onopen = () => {
       console.log("Connected to server");
     };
@@ -37,8 +38,15 @@ class Game extends Phaser.Game {
       waiting: This is the waiting room (waiting.js) that they use while the other player is connecting
       instructions: This is the instructions screen (instructions.js) that they use to read the instructions
       initialState: This is the initial state of the game that is sent to the client, and calls the game (collabscene.js)
-                    to start. WILL PROBABLY NEED TO CHANGE THIS AS WELL TO DEAL WITH COLLAB AND SEP
+      to start. WILL PROBABLY NEED TO CHANGE THIS AS WELL TO DEAL WITH COLLAB AND SEP
       */
+     /*
+      TO DO: 
+      - Change scene construction to have it respond to the order given by the server 
+      - Change inistial states so depending on the conditions, the game will be different
+      - create order system
+      
+     */
       let data = JSON.parse(event.data);
       switch(data.type) {
         case "waiting":
@@ -47,6 +55,8 @@ class Game extends Phaser.Game {
           this.scene.start("waitingRoom");
           break;
         case 'instructions':
+          this.conditions = data.conditions;
+          console.log(this.conditions);
             this.scene.add("instructions", new instructions({ws:this.ws}));
             this.scene.start("instructions");
             break;

@@ -1,7 +1,9 @@
 import { clear } from "console";
+import exp from "constants";
 import express from "express";
 import { stat } from "fs";
 import { send } from "process";
+import { json } from "stream/consumers";
 import { Server as WSServer } from "ws";
 import { WebSocket } from "ws";
 const fs = require("fs");
@@ -19,6 +21,9 @@ const wss = new WSServer({ server, path: "/coms" });
 
 /*
 Below is just declaring the different types and variables that are being used and sent to the players.
+  - expConsts: this is an object that stores the constants for the experiment. This includes the length of the trial, the length of the break, the number of trials,
+    the size of the tiles, and the file that stores the layout of the level.
+
   - stage: this is the stage of the game, either instructions or game. This is used to determine what the player sees. 
     OTHER STAGES WILL BE ADDED. THESE ARE JUST PLACEHOLDERS.
 
@@ -37,11 +42,13 @@ Below is just declaring the different types and variables that are being used an
 
 */
 const expConsts = {
-  trialLength: 45, 
-  breakLength: 20,
+  trialLength: 20, 
+  breakLength: 5,
   trials: 12,
   tileSize: 45,
   levelFile: "www/layouts/layout_1V2.csv",
+  writeData:0,
+  dataDir:"data/",
 }
 const connections: {
   player1: WebSocket | null;
@@ -53,16 +60,6 @@ const connections: {
 
 type Stage = {
   name: "instructions" | "game";
-};
-type WhichPlayer = {
-  name: "P1" | "P2" | "null";
-};
-type Pot = {
-  x: number;
-  y: number;
-  onions: 0 | 1 | 2 | 3;
-  stage: 0 | 1 | 2 | 3;
-  id: string;
 };
 type Player = {
   x: number;
@@ -156,6 +153,22 @@ const initialstate: initialState = {
   pots: potLocations,
   timestamp: now,
 };
+let data: any[] = [];
+let p1Ready = false;
+let p2Ready = false;
+let conditions = ['sep', 'collab'];
+let orderAmounts = [3,5,7];
+
+function createOrders(orderAmounts: number[], player: 'player1' | 'player2') {
+  /*
+  This creates and sends the orders and order information to the players. This is used to create the orders for the players to do complete
+  At the start of each trial the orders are created and sent to the players, and then drawn on the client side. There will be either 3, 5, or 7 orders
+  depending on the orderAmounts array. This will follow a path determined by the shuffle function at the start, and will be fed into this. 
+  */
+ return;
+
+}
+
 
 function findPotLocations(levelFile: any, tileSize: number) {
   /*
@@ -187,11 +200,7 @@ function findPotLocations(levelFile: any, tileSize: number) {
           id: `pot_${potNum}`, // Unique identifier for the pot
           x: x * tileSize + tileSize / 2, // Calculate x coordinate
           y: y * tileSize + tileSize / 2, // Calculate y coordinate
-          onions: 0,
-          stage: 0,
-          cooking: false,
-          readyToServe: false,
-          resetPotImage:false,
+          soupsTaken:0,
           potNum: potNum++,
         };
         // Push the pot object into the pots array
@@ -202,6 +211,17 @@ function findPotLocations(levelFile: any, tileSize: number) {
   // Return the array of pot objects
   return pots;
 }
+function shuffle(array: any[]){ 
+  /*
+  Used for randomising blocks and conditions 
+  */
+  for (let i = array.length - 1; i > 0; i--) { 
+    const j = Math.floor(Math.random() * (i + 1)); 
+    [array[i], array[j]] = [array[j], array[i]]; 
+  } 
+  return array; 
+}; 
+
 
 function applyToState(player: "player1" | "player2", values: Player) {
   /*
@@ -219,6 +239,7 @@ function applyToState(player: "player1" | "player2", values: Player) {
   }
 
   //console.log('State is now', JSON.stringify(state, null, 2))
+  recordState(state);
 }
 function send_Data(player: "player1" | "player2") {
   /*
@@ -249,6 +270,8 @@ function send_Data(player: "player1" | "player2") {
 function send_playerData(player: "player1" | "player2") {
   /*
   This sends initial states to the players only
+  It also switches the player positions so that the player appears as player 1 to themselves
+  and the other player always appears as player 2.
   */
   if (player === "player1" && connections.player1) {
     connections.player1.send(JSON.stringify({type: 'initialState', data: initialstate}));
@@ -273,6 +296,11 @@ function sendPotData(player: "player1" | "player2") {
   }
 }
 function startTrialTimer() {
+  /*
+  This starts the timer for the trial. This is set to 45 seconds. A message is emmited to the clients to start the trial and allow movement. 
+  A message is also emmitted to end the trial, disallow movement, and start the break.
+  The start break function is also called which will start the break timer and reset the environment.
+  */
   const timerDuration = expConsts.trialLength * 1000; // 45 seconds
 
   // Emit a message to clients to start the timer
@@ -283,7 +311,6 @@ function startTrialTimer() {
   // Start the timer on the server side
   const timer = setTimeout(() => {
     // Perform any actions you want to take after the timer expires
-    console.log("Timer expired after 45 seconds!");
 
     // Emit a message to clients indicating that the timer has expired
     connections.player1?.send(JSON.stringify({ type: "timer", data: "end" }));
@@ -297,6 +324,11 @@ function startTrialTimer() {
   }, timerDuration);
 }
 function resetPlayerData(player: "player1" | "player2") {
+  /*
+  This resets the player data. This is used to reset the player data after the trial has ended. This is used to reset the player data so that the
+  next trial can start. It resends the initial state to the players so that they can start the next trial in the correct positions, scores, 
+  onions, etc.
+  */
   if (connections.player1 && player === "player1") {
     let resetState = Object.assign({}, initialstate);
     resetState.trialNo = state.trialNo;
@@ -311,6 +343,10 @@ function resetPlayerData(player: "player1" | "player2") {
   }
 }
 function startBreak() {
+  /*
+  This starts the break timer. This is set to 20 seconds. This is used to allow the players to have a break between trials.
+  resetPlayerData is called to reset the player data so that the next trial can start. 
+  */
   const breakTime = expConsts.breakLength*1000; // 20 seconds
   console.log("break started")
   const breakTimer = setTimeout(() => {
@@ -319,11 +355,26 @@ function startBreak() {
     clearTimeout(breakTimer);
     resetPlayerData("player1");
     resetPlayerData("player2");
-
+    console.log("break ended");
 
 }, breakTime)};
-let p1Ready = false;
-let p2Ready = false;
+function recordState(values: State) {
+  /*
+  This records the state of the game. This is used to record the state of the game at the end of each trial. This is used to record the state of the game
+  at the end of each trial so that the data can be analyzed later. 
+  */
+  if (expConsts.writeData === 0) {
+    return;
+  }
+  if (expConsts.writeData === 1) {
+    data.push(values);
+    console.log('Recorded State');
+    console.log(values);
+  }
+}
+// p1 and p2 Ready are used to check if both players are ready to start the game. When this is true it emits the startGame message to both players
+// and sends data to both players.
+// This is the connection function. This is used to check if the players are connected and then sends the instructions to the players.
 wss.on("connection", function (ws) {
   if (connections.player1 === null) {
     connections.player1 = ws;
@@ -346,14 +397,21 @@ wss.on("connection", function (ws) {
     }
       // If both players are connected, send instructions to both
       if (connections.player1 && connections.player2) {
-        connections.player1.send(JSON.stringify({ type: "instructions", data: "start instruction"}));
-        connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction"}));
+        let blocks = shuffle(conditions);
+        console.log(blocks);
+        connections.player1.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));
+        connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));
       
   }
   ws.on("message", function message(m) {
     /*
     On message, this checks what type of message it is:
+    - startGame: checks if both players are ready to start the game. If they are, it sends the initial state to both players.
+
+    - CollabSceneReady: starts the trial timer, sending messages to start the trials (which run continuously including breaks). 
+
     - player: updates the state of the game based on the player data sent, and then sends the other player the updated state. 
+
     - pots: updates the state of the pots based on the data sent. This will also be sent to the other player so they can update the 
             state of the pots on their end.
     */
@@ -398,24 +456,14 @@ wss.on("connection", function (ws) {
           sendPotData("player1");
         } 
         break;
-        case 'startGame':
-          if (connections.player1 === ws) {
-            p1Ready = true;
-          }
-          if (connections.player2 === ws) {
-            p2Ready = true;
-          }
-          if (p1Ready && p2Ready) {
-          send_playerData("player1");
-          send_playerData("player2");
-          }
-        break;
     }
   });
 
   ws.on("close", () => {
     if (connections.player1 === ws) connections.player1 = null;
     else if (connections.player2 === ws) connections.player2 = null;
+    fs.writeFileSync(expConsts.dataDir + "data.json", JSON.stringify(data));
+
   });
 
   ws.on("error", console.error);
