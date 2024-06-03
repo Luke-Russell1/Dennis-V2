@@ -1,5 +1,6 @@
 import { clear } from "console";
 import exp from "constants";
+import { create } from "domain";
 import express from "express";
 import { stat } from "fs";
 import { send } from "process";
@@ -41,6 +42,15 @@ Below is just declaring the different types and variables that are being used an
     This is also used to determine what the player sees.
 
 */
+let data: any[] = [];
+let p1Ready = false;
+let p2Ready = false;
+let conditions = ['sep', 'collab'];
+let orderNumbers = [3,5,7];
+let soupNumbers = [1,2,3,4,5,6,7];
+let soupPrice = 5;
+let orders = createOrders(orderNumbers[0], soupNumbers);
+let orderLists = createOrderLists(orderNumbers, soupNumbers, 4);
 const expConsts = {
   trialLength: 20, 
   breakLength: 5,
@@ -80,6 +90,7 @@ type initialState = {
   player1: Player;
   player2: Player;
   pots: any;
+  orders: any;
   timestamp: number | Date;
 };
 type State = {
@@ -88,6 +99,7 @@ type State = {
   player1: Player;
   player2: Player;
   pots: any;
+  orders: any;
   timestamp: number | Date;
 };
 
@@ -95,7 +107,7 @@ const now = new Date();
 const potLocations = findPotLocations(expConsts.levelFile, expConsts.tileSize);
 const state: State = {
   stage: { name: "game" },
-  trialNo: 1,
+  trialNo: 0,
   player1: {
     x: 8 * 45,
     y: 8 * 45,
@@ -121,11 +133,12 @@ const state: State = {
     timestamp: now.getTime(),
   },
   pots: potLocations,
+  orders: orderLists.ordersObject[0],
   timestamp: now,
 };
 const initialstate: initialState = {
   stage: { name: "game" },
-  trialNo: 1,
+  trialNo: 0,
   player1: {
     x: 8 * 45,
     y: 8 * 45,
@@ -151,22 +164,59 @@ const initialstate: initialState = {
     timestamp: now.getTime(),
   },
   pots: potLocations,
+  orders: orderLists.ordersObject[0],
   timestamp: now,
 };
-let data: any[] = [];
-let p1Ready = false;
-let p2Ready = false;
-let conditions = ['sep', 'collab'];
-let orderAmounts = [3,5,7];
 
-function createOrders(orderAmounts: number[], player: 'player1' | 'player2') {
+function createOrders(orderAmount: number, soupAmounts: number[]) {
   /*
   This creates and sends the orders and order information to the players. This is used to create the orders for the players to do complete
   At the start of each trial the orders are created and sent to the players, and then drawn on the client side. There will be either 3, 5, or 7 orders
   depending on the orderAmounts array. This will follow a path determined by the shuffle function at the start, and will be fed into this. 
   */
- return;
+  let soups = sample(soupAmounts, orderAmount);
+  let price = soups.map(amount => amount * soupPrice);
+  let order = {
+    soups: soups,
+    price: price,
+    orderAmount: orderAmount,
+  };
+  return order;
+}
 
+function createOrderLists(orderAmount: number[], soupAmounts: number[], trialsPerOrder: number) {
+  // Shuffle and expand order numbers list
+  let orderNumbersList = shuffle(orderAmount.map(orderAmount => Array(trialsPerOrder).fill(orderAmount)).flat());
+  console.log(orderNumbersList);
+
+  // Initialize array and object to hold the orders
+  let ordersArray = [];
+  let ordersObject: { [key: number]: ReturnType<typeof createOrders> } = {};
+
+  // Iterate through the order numbers list and create orders
+  for (let i = 0; i < orderNumbersList.length; i++) {
+    let order = createOrders(orderNumbersList[i], soupAmounts);
+    ordersArray.push(order);
+    ordersObject[i] = order;
+  }
+  console.log(ordersObject);
+
+  // Log the results for demonstration purposes
+  return { ordersArray, ordersObject };
+}
+
+function sample<T>(array: T[], n: number): T[] {
+  // Sampling without replacement function
+  if (n > array.length) {
+    throw new Error("Sample size cannot be larger than the array size.");
+  }
+
+  const shuffled = array.slice(); // Create a copy of the array
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; // Swap elements
+  }
+  return shuffled.slice(0, n); // Return the first n elements
 }
 
 
@@ -318,6 +368,7 @@ function startTrialTimer() {
     console.log('trial ended')
     // trial number is .5 because two messages are recieved for each trial
     state.trialNo += .5;
+    state.orders = orderLists.ordersObject[state.trialNo];
     startBreak();
     // Clear the timer if it's no longer needed
     clearTimeout(timer);
@@ -332,6 +383,7 @@ function resetPlayerData(player: "player1" | "player2") {
   if (connections.player1 && player === "player1") {
     let resetState = Object.assign({}, initialstate);
     resetState.trialNo = state.trialNo;
+    resetState.orders = orderLists.ordersObject[state.trialNo];
     connections.player1.send(JSON.stringify({ type: "reset", data: resetState}));
   }
   if (connections.player2 && player === "player2") {
@@ -339,6 +391,7 @@ function resetPlayerData(player: "player1" | "player2") {
     resetState.trialNo = state.trialNo;
     resetState.player1 = initialstate.player2;
     resetState.player2 = initialstate.player1;
+    resetState.orders = orderLists.ordersObject[state.trialNo];
     connections.player2.send(JSON.stringify({ type: "reset", data: resetState}));
   }
 }
@@ -355,6 +408,7 @@ function startBreak() {
     clearTimeout(breakTimer);
     resetPlayerData("player1");
     resetPlayerData("player2");
+    createOrders(orderNumbers[state.trialNo], soupNumbers);
     console.log("break ended");
 
 }, breakTime)};
@@ -397,11 +451,12 @@ wss.on("connection", function (ws) {
     }
       // If both players are connected, send instructions to both
       if (connections.player1 && connections.player2) {
+        // creates and shuffles the number of orders for the trials
+        let orderTrials =shuffle(orderNumbers.map(orderAmount => Array(4).fill(orderAmount)).flat());
+        console.log(orderTrials);
         let blocks = shuffle(conditions);
-        console.log(blocks);
         connections.player1.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));
-        connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));
-      
+        connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));      
   }
   ws.on("message", function message(m) {
     /*
@@ -462,7 +517,12 @@ wss.on("connection", function (ws) {
   ws.on("close", () => {
     if (connections.player1 === ws) connections.player1 = null;
     else if (connections.player2 === ws) connections.player2 = null;
-    fs.writeFileSync(expConsts.dataDir + "data.json", JSON.stringify(data));
+
+    if (expConsts.writeData === 0) {
+      return;
+    } else if (expConsts.writeData === 1){
+      fs.writeFileSync(expConsts.dataDir + "data.json", JSON.stringify(data));
+    }
 
   });
 

@@ -44,6 +44,8 @@ export default class CollabScene extends Phaser.Scene {
       switch (playerData.type) {
         case "timer":
           if (playerData.data === "start") {
+            console.log("timer start")
+            console.log(this.state.orders);
             this.trialBegin = true;
             this.breakRectangle.setAlpha(0);
             this.breakText.setAlpha(0);
@@ -62,6 +64,10 @@ export default class CollabScene extends Phaser.Scene {
           // Reset player positions to initial positions
           this.updatePlayer(this.player, this.state.player1);
           this.updatePlayer(this.otherPlayer, this.state.player2);
+          break;
+        case "orders":
+          console.log(playerData.data);
+          console.log("order received")
           break;
         case "state":
           this.updatePlayer(this.otherPlayer, playerData.data.player2);
