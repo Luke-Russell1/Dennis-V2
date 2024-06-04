@@ -49,9 +49,11 @@ export default class CollabScene extends Phaser.Scene {
             this.trialBegin = true;
             this.breakRectangle.setAlpha(0);
             this.breakText.setAlpha(0);
+            this.displayOrders();
           }
           if (playerData.data === "end") {
             this.trialBegin = false;
+            this.orderTextGroup.clear(true, true);
             this.breakRectangle.setAlpha(1);
             this.breakText.setAlpha(1);
             this.state.trialNo += 0.5;
@@ -59,15 +61,10 @@ export default class CollabScene extends Phaser.Scene {
           break;
         case "reset":
           this.state = playerData.data;
-
           this.trialTime = 45;
           // Reset player positions to initial positions
           this.updatePlayer(this.player, this.state.player1);
           this.updatePlayer(this.otherPlayer, this.state.player2);
-          break;
-        case "orders":
-          console.log(playerData.data);
-          console.log("order received")
           break;
         case "state":
           this.updatePlayer(this.otherPlayer, playerData.data.player2);
@@ -192,6 +189,8 @@ export default class CollabScene extends Phaser.Scene {
       callbackScope: this,
       loop: true,
     });
+    // add group so that they can be removed if needed
+    this.orderTextGroup = this.add.group();
   }
   update() {
     // moves player
@@ -203,6 +202,35 @@ export default class CollabScene extends Phaser.Scene {
       this.pauseMovement
     );
     this.movePlayer(400, this.keys, this.allowMovement, this.pauseMovement);
+  }
+  displayOrders() {
+    /*
+    Function displays the orders one the screen. It displays the info found in the this.state.orders object, 
+    which is updated from the server. It will display the soups in the order and the price of the order.
+    The orders are added to a group so they can be removed at the end of the trial, and given an index 
+    so they can individually be crossed out/removed when completed. 
+    */
+    this.orderTextGroup.clear(true, true);
+    this.orderTextObjects = [];
+
+    for (let i = 0; i < this.state.orders.orderAmount; i++) {
+      let orderText = this.add.text(10, 60 + i * 75, `Order In!\n Soups: ${this.state.orders.soups[i]}\n Price: \$${this.state.orders.price[i]}\n`, {
+        fontSize: "18px",
+        fill: "#000",
+      });
+      this.orderTextGroup.add(orderText);
+      this.orderTextObjects.push(orderText);
+    }
+    console.log(this.orderTextObjects)
+  }
+  updateOrderStatus(orderIndex) {
+    /*
+    This removes a corresponding order when it is completed. This function is called in [GIVE FUNCTION NAME HERE]. 
+    */
+    if (this.orderTextObjects[orderIndex]) {
+      this.orderTextObjects[orderIndex].setStyle({ fill: "#888" });
+      this.orderTextObjects[orderIndex].setText(this.orderTextObjects[orderIndex].text + "\n [Completed]");
+    }
   }
   movePlayer(speed, keys, allowMovement, pauseMovement) {
     /*
@@ -377,21 +405,6 @@ export default class CollabScene extends Phaser.Scene {
       "\n Have a 10 second break!";
     this.breakText.setText(breakScreenText);
   }
-  resetPots(pots, potImages) {
-    /*
-    Resets the pots to their original state. This is called when the trial ends. 
-    */
-    for (let i = 0; i < pots.length; i++) {
-      let pot = pots[i];
-      let potImage = potImages[i];
-      pot.onions = 0;
-      pot.stage = 0;
-      pot.cooking = false;
-      pot.readyToServe = false;
-      potImage.setTexture("terrain", "pot.png");
-    }
-  }
-
   beginTrial(trialBegin) {
     /*
     This function is called when the trial begins and ends. It will pause and unpause the timer

@@ -180,6 +180,7 @@ function createOrders(orderAmount: number, soupAmounts: number[]) {
     soups: soups,
     price: price,
     orderAmount: orderAmount,
+    completed:false,
   };
   return order;
 }
