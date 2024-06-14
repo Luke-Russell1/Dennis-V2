@@ -11,11 +11,11 @@ export default class CollabScene extends Phaser.Scene {
 
   preload() {
     // Preload assets
-    this.load.image("environment", "./Assets/environment.png");
+    this.load.image("environment", "./Assets/environmentV2.png");
     this.load.atlas(
       "terrain",
-      "./Assets/environment.png",
-      "./Assets/environment.json"
+      "./Assets/environmentV2.png",
+      "./Assets/environmentV2.json"
     );
     this.load.atlas("agents", "./Assets/agents.png", "./Assets/agents.json");
     this.load.tilemapCSV("map", "./layouts/layout_1V2.csv");
@@ -26,7 +26,7 @@ export default class CollabScene extends Phaser.Scene {
     this.ws = this.game.ws;
     this.state = this.initialState;
     this.trialTime = 45;
-    this.ws.send(JSON.stringify({ type: "CollabSceneReady" }));
+    this.ws.send(JSON.stringify({ block: "collab", type: "CollabSceneReady" }));
     this.ws.onmessage = (event) => {
       let playerData = JSON.parse(event.data);
       /*
@@ -44,8 +44,6 @@ export default class CollabScene extends Phaser.Scene {
       switch (playerData.type) {
         case "timer":
           if (playerData.data === "start") {
-            console.log("timer start")
-            console.log(this.state.orders);
             this.trialBegin = true;
             this.breakRectangle.setAlpha(0);
             this.breakText.setAlpha(0);
@@ -69,10 +67,22 @@ export default class CollabScene extends Phaser.Scene {
         case "state":
           this.updatePlayer(this.otherPlayer, playerData.data.player2);
           this.updateState(this.state, playerData.data.player2);
+          this.updateOtherPlayerHat(this.hatSprite, "blue", this.state);
           this.updateScore(this.state);
           break;
         case "pots":
           this.state.pots = playerData.data;
+          break;
+        case "dishes":
+          this.state.dishes = playerData.data;
+          this.displayOrderAwayText(this.state);
+          break;
+        case "orderComplete":
+          this.removeOrderAwayText();
+          this.updateOrderStatus(playerData.order);
+          this.resetPlayersAfterOrder();
+          this.state.teamScore = playerData.teamScore;
+          this.updateScore(this.state);
           break;
       }
     };
@@ -90,6 +100,7 @@ export default class CollabScene extends Phaser.Scene {
       right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
       interact: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
       DRT: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      confirm: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F),
     };
     // creates map and adds tilesets
     this.map = this.make.tilemap({
@@ -107,7 +118,7 @@ export default class CollabScene extends Phaser.Scene {
     );
     // Create collision layer
     this.layer = this.map.createLayer(0, this.tileset, 0, 0);
-    const tilesToCollideWith = [0, 1, 3, 4, 5];
+    const tilesToCollideWith = [0, 1, 3, 4, 5, 7];
     this.layer.setCollision(tilesToCollideWith);
     // Set callbacks for collision events
     this.layer.setTileIndexCallback(
@@ -181,15 +192,20 @@ export default class CollabScene extends Phaser.Scene {
     );
     this.breakText.setOrigin(0.5, 0.5);
     this.breakText.setAlpha(0);
-
-    // Create a timer event that repeats every second (1000 ms)
+    // dealing with order away text
+    this.orderAwayText = this.add.text(220, 60, "", {
+      fontSize: "18px",
+      fill: "#000",
+    });
+    this.orderAwayText.visible = false;
+    // Create a timer event that repeats every second (1000 ms). This makes it count down each second (changes the number).
     this.timer = this.time.addEvent({
       delay: 1000,
       callback: this.trialTimer,
       callbackScope: this,
       loop: true,
     });
-    // add group so that they can be removed if needed
+    // add group so that orders can be removed if needed
     this.orderTextGroup = this.add.group();
   }
   update() {
@@ -202,6 +218,19 @@ export default class CollabScene extends Phaser.Scene {
       this.pauseMovement
     );
     this.movePlayer(400, this.keys, this.allowMovement, this.pauseMovement);
+    this.sendDishes();
+  }
+  displayOrderAwayText(state) {
+    this.orderAwayText.visible = true;
+    this.orderAwayText.setText(
+      `Your Teammate Wants to Serve ${state.dishes.dishesWaiting} Soups!`
+    );
+    // Set text object as visible
+    console.log("displaying text");
+  }
+  removeOrderAwayText() {
+    this.orderAwayText.visible = false;
+    this.orderAwayText.setText("");
   }
   displayOrders() {
     /*
@@ -214,14 +243,18 @@ export default class CollabScene extends Phaser.Scene {
     this.orderTextObjects = [];
 
     for (let i = 0; i < this.state.orders.orderAmount; i++) {
-      let orderText = this.add.text(10, 60 + i * 75, `Order In!\n Soups: ${this.state.orders.soups[i]}\n Price: \$${this.state.orders.price[i]}\n`, {
-        fontSize: "18px",
-        fill: "#000",
-      });
+      let orderText = this.add.text(
+        10,
+        60 + i * 75,
+        `Order In!\n Soups: ${this.state.orders.soups[i]}\n Price: \$${this.state.orders.price[i]}\n`,
+        {
+          fontSize: "18px",
+          fill: "#000",
+        }
+      );
       this.orderTextGroup.add(orderText);
       this.orderTextObjects.push(orderText);
     }
-    console.log(this.orderTextObjects)
   }
   updateOrderStatus(orderIndex) {
     /*
@@ -229,8 +262,54 @@ export default class CollabScene extends Phaser.Scene {
     */
     if (this.orderTextObjects[orderIndex]) {
       this.orderTextObjects[orderIndex].setStyle({ fill: "#888" });
-      this.orderTextObjects[orderIndex].setText(this.orderTextObjects[orderIndex].text + "\n [Completed]");
     }
+  }
+  sendDishes() {
+    /*
+    This function updates player info and dishes info on the server side, which is then sent to the other client. 
+    We update the order called for dishes and for the player, so that the same player cannot send it. BOTH players need to call 
+    it for the order to be sent. If this is true, it is consistnetly sent to the server until it the other person replies. 
+    */
+    if (
+      this.state.player1.callingOrder &&
+      this.state.dishes.dishesWaiting > 0 &&
+      !this.state.player1.currentlyServing
+    ) {
+      this.state.player1.callingOrder = true;
+      this.state.dishes.orderCalled = true;
+      this.state.player1.currentlyServing = true;
+      this.ws.send(
+        JSON.stringify({
+          block: "collab",
+          type: "player",
+          data: this.state.player1,
+        })
+      );
+      this.ws.send(
+        JSON.stringify({
+          block: "collab",
+          type: "dishes",
+          data: this.state.dishes,
+        })
+      );
+    }
+  }
+  resetPlayersAfterOrder() {
+    /*
+    When the call is sent from the server, we reset the relevant things like thier interaction tile and calling order, 
+    The order status is then updated to reflect the completed order. Instead of data being sent from the server and updated in that way, 
+    we just update it server side, sent the call (no data aside from order index) and the update client side directly. 
+    This may not be the best approach but it will do.
+    */
+    this.state.player1.interactionTile = null;
+    this.state.player1.callingOrder = false;
+    this.state.player1.currentlyServing = false;
+    this.state.dishes.orderCalled = false;
+    this.state.dishes.dishesWaiting = 0;
+    this.state.player2.interactionTile = null;
+    this.state.player2.callingOrder = false;
+    this.state.player2.currentlyServing = false;
+    console.log("resetting order and Players");
   }
   movePlayer(speed, keys, allowMovement, pauseMovement) {
     /*
@@ -272,7 +351,11 @@ export default class CollabScene extends Phaser.Scene {
       this.state.player1.x = this.player.x;
       this.state.player1.y = this.player.y;
       this.ws.send(
-        JSON.stringify({ type: "player", data: this.state.player1 })
+        JSON.stringify({
+          block: "collab",
+          type: "player",
+          data: this.state.player1,
+        })
       );
     }
   }
@@ -304,11 +387,25 @@ export default class CollabScene extends Phaser.Scene {
     it updates to the corresponding image. For example, if the interaction tile is "onion" and the player is facing
     south, the image will be "SOUTH-onion.png" and that is the image that will display. 
     */
-    if (interactionTile === null) {
+    if (interactionTile === null || interactionTile === "orderCalled") {
       player.setFrame(direction + ".png");
     } else {
       player.setFrame(direction + "-" + interactionTile + ".png");
     }
+  }
+  updateOtherPlayerHat( hat, colour, state) {
+    /*
+    Updates the hat of the other player so that they know which one is which. We subtract 12 in the north condition because it
+    seems to be taller than the other directions. Hat colour can be changed easily and may need to be randomised. 
+    */
+    if (state.player2.direction === "NORTH") {
+      hat.x = state.player2.x
+      hat.y = state.player2.y - 12
+    } else {
+      hat.x = state.player2.x
+      hat.y = state.player2.y - 15
+    }
+    hat.setFrame(state.player2.direction + "-" + colour + "hat.png");
   }
   tileInteraction() {
     /*
@@ -322,7 +419,23 @@ export default class CollabScene extends Phaser.Scene {
       if (this.interactionInitiated && this.collision_tile == 1) {
         this.state.player1.interactionTile = "dish";
         this.ws.send(
-          JSON.stringify({ type: "player", data: this.state.player1 })
+          JSON.stringify({
+            block: "collab",
+            type: "player",
+            data: this.state.player1,
+          })
+        );
+      }
+      if (this.interactionInitiated && this.collision_tile == 7) {
+        this.state.player1.interactionTile = "orderCalled";
+        this.state.player1.callingOrder = true;
+        this.state.dishes.orderCalled = true;
+        this.ws.send(
+          JSON.stringify({
+            block: "collab",
+            type: "player",
+            data: this.state.player1,
+          })
         );
       }
       if (
@@ -330,12 +443,24 @@ export default class CollabScene extends Phaser.Scene {
         this.collision_tile == 5 &&
         this.state.player1.interactionTile == "soup-onion"
       ) {
-        this.state.player1.currentlyServing = false;
         this.state.player1.interactionTile = null;
         this.state.player1.dishesServed += 1;
+        this.state.dishes.dishesWaiting += 1;
+
         this.state.player1.score += 5;
         this.ws.send(
-          JSON.stringify({ type: "player", data: this.state.player1 })
+          JSON.stringify({
+            block: "collab",
+            type: "player",
+            data: this.state.player1,
+          })
+        );
+        this.ws.send(
+          JSON.stringify({
+            block: "collab",
+            type: "dishes",
+            data: this.state.dishes,
+          })
         );
       }
     }
@@ -362,21 +487,28 @@ export default class CollabScene extends Phaser.Scene {
       if (
         player.interactionTile === "dish" &&
         distance < 60 &&
-        this.keys.interact.isDown &&
-        !player.currentlyServing
+        this.keys.interact.isDown
       ) {
-        player.currentlyServing = true;
         this.pauseMovement = true;
         setTimeout(() => {
           this.pauseMovement = false;
           player.interactionTile = "soup-onion";
-          pot.soupsTaken += 1;
+          player.soupsServed += 1;
 
-          player.currentlyServing = true;
           this.ws.send(
-            JSON.stringify({ type: "player", data: this.state.player1 })
+            JSON.stringify({
+              block: "collab",
+              type: "player",
+              data: this.state.player1,
+            })
           );
-          this.ws.send(JSON.stringify({ type: "pots", data: this.state.pots }));
+          this.ws.send(
+            JSON.stringify({
+              block: "collab",
+              type: "pots",
+              data: this.state.pots,
+            })
+          );
         }, 2000);
         break;
       }
@@ -389,19 +521,21 @@ export default class CollabScene extends Phaser.Scene {
     then the player score and the other player score are updated. The team score is calculated by adding them
     both and updated accordingly. Additionally, update the breakText content to reflect the new scores.
     */
-    this.playerScore = state.player1.score;
-    this.otherPlayerScore = state.player2.score;
-    this.teamScore = this.playerScore + this.otherPlayerScore;
-    this.scoreText.setText("Score: " + this.teamScore);
+    let playerScore = state.player1.score;
+    let otherPlayerScore = state.player2.score;
+    let teamScore = state.teamScore;
+    console.log(teamScore);
+    let totalScore = playerScore + otherPlayerScore + teamScore;
+    this.scoreText.setText("Score: " + totalScore);
 
     // Update breakText content
     let breakScreenText =
       " Break Time! \n team Score: " +
-      this.teamScore +
+      totalScore +
       "\n Your Score: " +
-      this.playerScore +
+      playerScore +
       "\n Teammate's Score: " +
-      this.otherPlayerScore +
+      otherPlayerScore +
       "\n Have a 10 second break!";
     this.breakText.setText(breakScreenText);
   }

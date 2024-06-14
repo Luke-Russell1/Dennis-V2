@@ -28,7 +28,7 @@ export default class instructions extends Phaser.Scene {
     }
     progressToNextTrial(keys) {
         if (keys.ENTER.isDown) {
-            this.ws.send(JSON.stringify({ type: 'startGame' }));
+            this.ws.send(JSON.stringify({ block: 'startGame', data: "ready"}));
             console.log("Sent message: startGame");
         }
     }

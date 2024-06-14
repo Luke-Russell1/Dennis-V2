@@ -4,6 +4,7 @@ import { create } from "domain";
 import express from "express";
 import { stat } from "fs";
 import { send } from "process";
+import { start } from "repl";
 import { json } from "stream/consumers";
 import { Server as WSServer } from "ws";
 import { WebSocket } from "ws";
@@ -15,7 +16,7 @@ const port = 3000;
 app.use(express.static("www"));
 
 const server = app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
+  console.log(`Server started on http://localhost:3000`);
 });
 
 const wss = new WSServer({ server, path: "/coms" });
@@ -45,21 +46,21 @@ Below is just declaring the different types and variables that are being used an
 let data: any[] = [];
 let p1Ready = false;
 let p2Ready = false;
-let conditions = ['sep', 'collab'];
-let orderNumbers = [3,5,7];
-let soupNumbers = [1,2,3,4,5,6,7];
+let conditions = ["sep", "collab"];
+let orderNumbers = [3, 5, 7];
+let soupNumbers = [1, 2, 3, 4, 5, 6, 7];
 let soupPrice = 5;
 let orders = createOrders(orderNumbers[0], soupNumbers);
 let orderLists = createOrderLists(orderNumbers, soupNumbers, 4);
 const expConsts = {
-  trialLength: 20, 
+  trialLength: 60,
   breakLength: 5,
   trials: 12,
   tileSize: 45,
   levelFile: "www/layouts/layout_1V2.csv",
-  writeData:0,
-  dataDir:"data/",
-}
+  writeData: 0,
+  dataDir: "data/",
+};
 const connections: {
   player1: WebSocket | null;
   player2: WebSocket | null;
@@ -81,25 +82,37 @@ type Player = {
   score: number;
   onionsAdded: number;
   dishesServed: number;
+  callingOrder: boolean;
+  timestamp: number | Date;
+};
+type Dishes = {
+  dishesWaiting: number;
+  orderCalled: boolean;
   timestamp: number | Date;
 };
 
 type initialState = {
-  trialNo:number;
+  block: Array<string>;
+  trialNo: number;
   stage: Stage;
   player1: Player;
   player2: Player;
   pots: any;
+  teamScore: number;
   orders: any;
+  dishes: Dishes;
   timestamp: number | Date;
 };
 type State = {
-  trialNo:number;
+  block: Array<string>;
+  trialNo: number;
   stage: Stage;
   player1: Player;
   player2: Player;
+  teamScore: number;
   pots: any;
   orders: any;
+  dishes: Dishes;
   timestamp: number | Date;
 };
 
@@ -107,6 +120,7 @@ const now = new Date();
 const potLocations = findPotLocations(expConsts.levelFile, expConsts.tileSize);
 const state: State = {
   stage: { name: "game" },
+  block: [],
   trialNo: 0,
   player1: {
     x: 8 * 45,
@@ -118,6 +132,7 @@ const state: State = {
     score: 0,
     onionsAdded: 0,
     dishesServed: 0,
+    callingOrder: false,
     timestamp: now.getTime(),
   },
   player2: {
@@ -129,16 +144,20 @@ const state: State = {
     currentlyServing: false,
     score: 0,
     onionsAdded: 0,
-    dishesServed:0,
+    dishesServed: 0,
+    callingOrder: false,
     timestamp: now.getTime(),
   },
+  teamScore: 0,
   pots: potLocations,
   orders: orderLists.ordersObject[0],
+  dishes: { dishesWaiting: 0, orderCalled: false, timestamp: now },
   timestamp: now,
 };
 const initialstate: initialState = {
   stage: { name: "game" },
   trialNo: 0,
+  block: [],
   player1: {
     x: 8 * 45,
     y: 8 * 45,
@@ -149,6 +168,7 @@ const initialstate: initialState = {
     score: 0,
     onionsAdded: 0,
     dishesServed: 0,
+    callingOrder: false,
     timestamp: now.getTime(),
   },
   player2: {
@@ -161,12 +181,124 @@ const initialstate: initialState = {
     score: 0,
     onionsAdded: 0,
     dishesServed: 0,
+    callingOrder: false,
     timestamp: now.getTime(),
   },
+  teamScore: 0,
   pots: potLocations,
   orders: orderLists.ordersObject[0],
+  dishes: { dishesWaiting: 0, orderCalled: false, timestamp: now },
   timestamp: now,
 };
+
+function randomiseBlocks(blocks: any, state: State, intialstate: initialState) {
+  /*
+  This randomises the blocks. This is used to randomise the blocks so that the players do not know what order they will be in. 
+  This is used to randomise the order of the blocks so that the players do not know what order they will be in. 
+  */
+  let randomBlocks = shuffle(blocks);
+  state.block = randomBlocks;
+  intialstate.block = randomBlocks;
+  console.log(state.block);
+}
+
+function startBlock(
+  initialState: initialState,
+  connections: any,
+  block: null | "sep" | "collab"
+) {
+  /*
+  This starts the block. The "block" type is used to determine whether the full game is being started,
+  or just the collab/sep blocks. This is used for testing. 
+  */
+  if (block === null) {
+    if (state.block[0] === "collab") {
+      state.stage.name = "game";
+      // Switch player positions for "collab" condition
+      let collabInitialState = Object.assign({}, initialState);
+      collabInitialState.player1 = initialState.player2;
+      collabInitialState.player2 = initialState.player1;
+
+      if (connections.player1) {
+        connections.player1.send(
+          JSON.stringify({
+            type: "startBlock",
+            block: "collab",
+            data: initialState,
+          })
+        );
+      }
+      if (connections.player2) {
+        connections.player2.send(
+          JSON.stringify({
+            type: "startBlock",
+            block: "collab",
+            data: collabInitialState,
+          })
+        );
+      }
+    } else if (state.block[0] === "sep") {
+      state.stage.name = "game";
+      if (connections.player1) {
+        connections.player1.send(
+          JSON.stringify({
+            type: "startBlock",
+            block: "sep",
+            data: initialState,
+          })
+        );
+      }
+      if (connections.player2) {
+        connections.player2.send(
+          JSON.stringify({
+            type: "startBlock",
+            block: "sep",
+            data: initialState,
+          })
+        );
+      }
+    }
+  }
+  if (block === "sep") {
+    state.stage.name = "game";
+    if (connections.player1) {
+      connections.player1.send(
+        JSON.stringify({ type: "startBlock", block: "sep", data: initialState })
+      );
+    }
+    if (connections.player2) {
+      connections.player2.send(
+        JSON.stringify({ type: "startBlock", block: "sep", data: initialState })
+      );
+    }
+  }
+  if (block === "collab") {
+    state.stage.name = "game";
+    // Switch player positions for "collab" condition
+    let collabInitialState = Object.assign({}, initialState);
+    collabInitialState.player1 = initialState.player2;
+    collabInitialState.player2 = initialState.player1;
+
+    if (connections.player1) {
+      connections.player1.send(
+        JSON.stringify({
+          type: "startBlock",
+          block: "collab",
+          data: initialState,
+        })
+      );
+    }
+    if (connections.player2) {
+      connections.player2.send(
+        JSON.stringify({
+          type: "startBlock",
+          block: "collab",
+          data: collabInitialState,
+        })
+      );
+    }
+  }
+}
 
 function createOrders(orderAmount: number, soupAmounts: number[]) {
   /*
@@ -175,20 +307,31 @@ function createOrders(orderAmount: number, soupAmounts: number[]) {
   depending on the orderAmounts array. This will follow a path determined by the shuffle function at the start, and will be fed into this. 
   */
   let soups = sample(soupAmounts, orderAmount);
-  let price = soups.map(amount => amount * soupPrice);
+  let price = soups.map((amount) => amount * soupPrice);
+  let completed = [false];
+  let completedVec = completed.flatMap((value) =>
+    Array(soups.length).fill(value)
+  );
   let order = {
     soups: soups,
     price: price,
     orderAmount: orderAmount,
-    completed:false,
+    completed: completedVec,
   };
   return order;
 }
 
-function createOrderLists(orderAmount: number[], soupAmounts: number[], trialsPerOrder: number) {
+function createOrderLists(
+  orderAmount: number[],
+  soupAmounts: number[],
+  trialsPerOrder: number
+) {
   // Shuffle and expand order numbers list
-  let orderNumbersList = shuffle(orderAmount.map(orderAmount => Array(trialsPerOrder).fill(orderAmount)).flat());
-  console.log(orderNumbersList);
+  let orderNumbersList = shuffle(
+    orderAmount
+      .map((orderAmount) => Array(trialsPerOrder).fill(orderAmount))
+      .flat()
+  );
 
   // Initialize array and object to hold the orders
   let ordersArray = [];
@@ -200,7 +343,6 @@ function createOrderLists(orderAmount: number[], soupAmounts: number[], trialsPe
     ordersArray.push(order);
     ordersObject[i] = order;
   }
-  console.log(ordersObject);
 
   // Log the results for demonstration purposes
   return { ordersArray, ordersObject };
@@ -219,7 +361,6 @@ function sample<T>(array: T[], n: number): T[] {
   }
   return shuffled.slice(0, n); // Return the first n elements
 }
-
 
 function findPotLocations(levelFile: any, tileSize: number) {
   /*
@@ -251,7 +392,7 @@ function findPotLocations(levelFile: any, tileSize: number) {
           id: `pot_${potNum}`, // Unique identifier for the pot
           x: x * tileSize + tileSize / 2, // Calculate x coordinate
           y: y * tileSize + tileSize / 2, // Calculate y coordinate
-          soupsTaken:0,
+          soupsTaken: 0,
           potNum: potNum++,
         };
         // Push the pot object into the pots array
@@ -262,17 +403,16 @@ function findPotLocations(levelFile: any, tileSize: number) {
   // Return the array of pot objects
   return pots;
 }
-function shuffle(array: any[]){ 
+function shuffle(array: any[]) {
   /*
   Used for randomising blocks and conditions 
   */
-  for (let i = array.length - 1; i > 0; i--) { 
-    const j = Math.floor(Math.random() * (i + 1)); 
-    [array[i], array[j]] = [array[j], array[i]]; 
-  } 
-  return array; 
-}; 
-
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
 
 function applyToState(player: "player1" | "player2", values: Player) {
   /*
@@ -289,7 +429,7 @@ function applyToState(player: "player1" | "player2", values: Player) {
     state.timestamp = new Date().getTime();
   }
 
-  //console.log('State is now', JSON.stringify(state, null, 2))
+  //)
   recordState(state);
 }
 function send_Data(player: "player1" | "player2") {
@@ -311,8 +451,8 @@ function send_Data(player: "player1" | "player2") {
       JSON.stringify({ type: "state", data: stateToSend })
     );
   }
-  
-  if (player === 'player1' && connections.player1) {
+
+  if (player === "player1" && connections.player1) {
     state.timestamp = new Date().getTime();
     connections.player1.send(JSON.stringify({ type: "state", data: state }));
   }
@@ -325,14 +465,17 @@ function send_playerData(player: "player1" | "player2") {
   and the other player always appears as player 2.
   */
   if (player === "player1" && connections.player1) {
-    connections.player1.send(JSON.stringify({type: 'initialState', data: initialstate}));
-    console.log(initialstate);
+    connections.player1.send(
+      JSON.stringify({ type: "initialState", data: initialstate })
+    );
   }
   if (player === "player2" && connections.player2) {
     let player2State = Object.assign({}, initialstate);
     player2State.player1 = initialstate.player2;
     player2State.player2 = initialstate.player1;
-    connections.player2.send(JSON.stringify({type: 'initialState', data: player2State}));
+    connections.player2.send(
+      JSON.stringify({ type: "initialState", data: player2State })
+    );
   }
 }
 function sendPotData(player: "player1" | "player2") {
@@ -340,12 +483,87 @@ function sendPotData(player: "player1" | "player2") {
   This sends the pot data to the players. This is used to update the state of the pots on the players end. 
   */
   if (player === "player1" && connections.player1) {
-    connections.player1.send(JSON.stringify({ type: "pots", data: state.pots }));
+    connections.player1.send(
+      JSON.stringify({ type: "pots", data: state.pots })
+    );
   }
   if (player === "player2" && connections.player2) {
-    connections.player2.send(JSON.stringify({ type: "pots", data: state.pots }));
+    connections.player2.send(
+      JSON.stringify({ type: "pots", data: state.pots })
+    );
   }
 }
+function updateDishes(player: "player1" | "player2", data: Dishes) {
+  /*
+  This updates the dishes. This is used to update the dishes based on the data sent by the player. 
+  */
+  if (player == "player1") {
+    state.dishes = data;
+    connections.player2?.send(
+      JSON.stringify({ type: "dishes", data: state.dishes })
+    );
+  }
+  if (player == "player2") {
+    state.dishes = data;
+    connections.player1?.send(
+      JSON.stringify({ type: "dishes", data: state.dishes })
+    );
+  }
+}
+function handleOrderData(state: State) {
+  /*
+  This handles the order data. It searches the index using the for loop when they call and order away. If it hasn't been completed, it will mark it as completed
+  and the players will be reset/awarded points. If it has been completed it will be logged and they will be penalised. 
+  */
+  if (
+    state.player1.callingOrder &&
+    state.player2.callingOrder &&
+    state.dishes.dishesWaiting !== 0
+  ) {
+    for (let i = 0; i < state.orders.orderAmount; i++) {
+      if (state.dishes.dishesWaiting === state.orders.soups[i]) {
+        if (state.orders.completed[i] === false) {
+        state.orders.completed[i] = true;
+        state.dishes.dishesWaiting = 0;
+        state.dishes.orderCalled = false;
+        state.player1.callingOrder = false;
+        state.player2.callingOrder = false;
+        state.player1.currentlyServing = false;
+        state.player2.currentlyServing = false;
+        state.teamScore += state.orders.price[i];
+        console.log("Completed Order" + i);
+        console.log("Team Score: " + state.teamScore);
+        resetPlayersAfterOrder("player1", i, state.teamScore);
+        resetPlayersAfterOrder("player2", i, state.teamScore);
+        }
+      }
+      }
+    }
+  }
+
+function resetPlayersAfterOrder(player: "player1" | "player2", values: number, teamScore: number) {
+  if (player === "player1") {
+    state.player1.callingOrder = false;
+    state.player1.interactionTile = null;
+    state.player2.callingOrder = false;
+    state.player2.interactionTile = null;
+    connections.player1?.send(
+      JSON.stringify({ type: "orderComplete", order: values, teamScore: teamScore})
+    );
+    console.log("player 1 reset");
+  }
+  if (player === "player2") {
+    state.player1.callingOrder = false;
+    state.player1.interactionTile = null;
+    state.player2.callingOrder = false;
+    state.player2.interactionTile = null;
+    connections.player2?.send(
+      JSON.stringify({ type: "orderComplete", order: values, teamScore: teamScore})
+    );
+    console.log("player 2 reset");
+  }
+}
+
 function startTrialTimer() {
   /*
   This starts the timer for the trial. This is set to 45 seconds. A message is emmited to the clients to start the trial and allow movement. 
@@ -357,7 +575,6 @@ function startTrialTimer() {
   // Emit a message to clients to start the timer
   connections.player1?.send(JSON.stringify({ type: "timer", data: "start" }));
   connections.player2?.send(JSON.stringify({ type: "timer", data: "start" }));
-  console.log('trial started')
 
   // Start the timer on the server side
   const timer = setTimeout(() => {
@@ -366,15 +583,16 @@ function startTrialTimer() {
     // Emit a message to clients indicating that the timer has expired
     connections.player1?.send(JSON.stringify({ type: "timer", data: "end" }));
     connections.player2?.send(JSON.stringify({ type: "timer", data: "end" }));
-    console.log('trial ended')
+
     // trial number is .5 because two messages are recieved for each trial
-    state.trialNo += .5;
+    state.trialNo += 0.5;
     state.orders = orderLists.ordersObject[state.trialNo];
     startBreak();
     // Clear the timer if it's no longer needed
     clearTimeout(timer);
   }, timerDuration);
 }
+
 function resetPlayerData(player: "player1" | "player2") {
   /*
   This resets the player data. This is used to reset the player data after the trial has ended. This is used to reset the player data so that the
@@ -385,7 +603,9 @@ function resetPlayerData(player: "player1" | "player2") {
     let resetState = Object.assign({}, initialstate);
     resetState.trialNo = state.trialNo;
     resetState.orders = orderLists.ordersObject[state.trialNo];
-    connections.player1.send(JSON.stringify({ type: "reset", data: resetState}));
+    connections.player1.send(
+      JSON.stringify({ type: "reset", data: resetState })
+    );
   }
   if (connections.player2 && player === "player2") {
     let resetState = Object.assign({}, initialstate);
@@ -393,7 +613,9 @@ function resetPlayerData(player: "player1" | "player2") {
     resetState.player1 = initialstate.player2;
     resetState.player2 = initialstate.player1;
     resetState.orders = orderLists.ordersObject[state.trialNo];
-    connections.player2.send(JSON.stringify({ type: "reset", data: resetState}));
+    connections.player2.send(
+      JSON.stringify({ type: "reset", data: resetState })
+    );
   }
 }
 function startBreak() {
@@ -401,18 +623,17 @@ function startBreak() {
   This starts the break timer. This is set to 20 seconds. This is used to allow the players to have a break between trials.
   resetPlayerData is called to reset the player data so that the next trial can start. 
   */
-  const breakTime = expConsts.breakLength*1000; // 20 seconds
-  console.log("break started")
+  const breakTime = expConsts.breakLength * 1000; // 20 seconds
+
   const breakTimer = setTimeout(() => {
-    console.log("break ended")
     startTrialTimer();
     clearTimeout(breakTimer);
     resetPlayerData("player1");
     resetPlayerData("player2");
     createOrders(orderNumbers[state.trialNo], soupNumbers);
-    console.log("break ended");
+  }, breakTime);
+}
 
-}, breakTime)};
 function recordState(values: State) {
   /*
   This records the state of the game. This is used to record the state of the game at the end of each trial. This is used to record the state of the game
@@ -423,8 +644,6 @@ function recordState(values: State) {
   }
   if (expConsts.writeData === 1) {
     data.push(values);
-    console.log('Recorded State');
-    console.log(values);
   }
 }
 // p1 and p2 Ready are used to check if both players are ready to start the game. When this is true it emits the startGame message to both players
@@ -433,31 +652,54 @@ function recordState(values: State) {
 wss.on("connection", function (ws) {
   if (connections.player1 === null) {
     connections.player1 = ws;
-    console.log("Player 1 connected");
   } else if (connections.player2 === null) {
     connections.player2 = ws;
-    console.log("Player 2 connected");  
+
     // Check if both players are not connected
   } else {
     console.error("No available player slots");
-  }if (!connections.player1 || !connections.player2) {
-      if (connections.player1) {
-        // Emit a message to player 1 to wait for player 2 to connect
-        connections.player1.send(JSON.stringify({ type: "waiting", data: "Waiting for player 2 to connect..." }));
-      }
-      if (connections.player2) {
-        // Emit a message to player 2 to wait for player 1 to connect
-        connections.player2.send(JSON.stringify({ type: "waiting", data: "Waiting for player 1 to connect..." }));
-      }
+  }
+  if (!connections.player1 || !connections.player2) {
+    if (connections.player1) {
+      // Emit a message to player 1 to wait for player 2 to connect
+      connections.player1.send(
+        JSON.stringify({
+          type: "waiting",
+          data: "Waiting for player 2 to connect...",
+        })
+      );
     }
-      // If both players are connected, send instructions to both
-      if (connections.player1 && connections.player2) {
-        // creates and shuffles the number of orders for the trials
-        let orderTrials =shuffle(orderNumbers.map(orderAmount => Array(4).fill(orderAmount)).flat());
-        console.log(orderTrials);
-        let blocks = shuffle(conditions);
-        connections.player1.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));
-        connections.player2.send(JSON.stringify({ type: "instructions", data: "start instruction", conditions: blocks}));      
+    if (connections.player2) {
+      // Emit a message to player 2 to wait for player 1 to connect
+      connections.player2.send(
+        JSON.stringify({
+          type: "waiting",
+          data: "Waiting for player 1 to connect...",
+        })
+      );
+    }
+  }
+  // If both players are connected, send instructions to both
+  if (connections.player1 && connections.player2) {
+    // creates and shuffles the number of orders for the trials
+    let orderTrials = shuffle(
+      orderNumbers.map((orderAmount) => Array(4).fill(orderAmount)).flat()
+    );
+    randomiseBlocks(conditions, state, initialstate);
+    connections.player1.send(
+      JSON.stringify({
+        type: "instructions",
+        data: "start instruction",
+        conditions: state.block,
+      })
+    );
+    connections.player2.send(
+      JSON.stringify({
+        type: "instructions",
+        data: "start instruction",
+        conditions: state.block,
+      })
+    );
   }
   ws.on("message", function message(m) {
     /*
@@ -472,46 +714,69 @@ wss.on("connection", function (ws) {
             state of the pots on their end.
     */
     const data = JSON.parse(m.toString("utf-8"));
-    switch (data.type) {
-      case 'startGame':
-        if (connections.player1 === ws) {
-          p1Ready = true;
-          console.log(p1Ready, p2Ready);
-        }
-        if (connections.player2 === ws) {
-          p2Ready = true;
-          console.log(p1Ready, p2Ready);
-        }
-        if (connections.player1 && connections.player2 && p1Ready && p2Ready) {
-          console.log(p1Ready, p2Ready);
-          send_playerData("player1");
-          send_playerData("player2");
-        }
-        break;
-      case 'CollabSceneReady':
-        startTrialTimer();
-        break;
-      case "player":
-        const playerData = data.data as Player;
-        if (connections.player1 === ws) {
-          applyToState("player1", playerData);
-          send_Data("player2");
-        } 
-        if (connections.player2 === ws) {
-          applyToState("player2", playerData);
-          send_Data("player1");
+    switch (data.block) {
+      case "startGame":
+        if (data.data === "ready") {
+          if (connections.player1 === ws) {
+            p1Ready = true;
+          }
+          if (connections.player2 === ws) {
+            p2Ready = true;
+          }
+          if (
+            connections.player1 &&
+            connections.player2 &&
+            p1Ready &&
+            p2Ready
+          ) {
+            startBlock(initialstate, connections, "collab");
+          }
         }
         break;
-      case "pots":
-        if (connections.player1 === ws) {
-          state.pots = data.data;
-          sendPotData("player2");
+
+      case "sep":
+        switch (data.type) {
+          case "SepSceneReady":
+            startTrialTimer();
+            break;
         }
-        if (connections.player2 === ws) {
-          state.pots = data.data;
-          sendPotData("player1");
-        } 
         break;
+      case "collab":
+        switch (data.type) {
+          case "CollabSceneReady":
+            startTrialTimer();
+            break;
+          case "player":
+            const playerData = data.data as Player;
+            if (connections.player1 === ws) {
+              applyToState("player1", playerData);
+              send_Data("player2");
+            }
+            if (connections.player2 === ws) {
+              applyToState("player2", playerData);
+              send_Data("player1");
+            }
+            break;
+          case "pots":
+            if (connections.player1 === ws) {
+              state.pots = data.data;
+              sendPotData("player2");
+            }
+            if (connections.player2 === ws) {
+              state.pots = data.data;
+              sendPotData("player1");
+            }
+            break;
+          case "dishes":
+            if (connections.player1 === ws) {
+              updateDishes("player1", data.data);
+            }
+            if (connections.player2 === ws) {
+              updateDishes("player2", data.data);
+            }
+            handleOrderData(state);
+            break;
+        }
     }
   });
 
@@ -521,10 +786,9 @@ wss.on("connection", function (ws) {
 
     if (expConsts.writeData === 0) {
       return;
-    } else if (expConsts.writeData === 1){
+    } else if (expConsts.writeData === 1) {
       fs.writeFileSync(expConsts.dataDir + "data.json", JSON.stringify(data));
     }
-
   });
 
   ws.on("error", console.error);
