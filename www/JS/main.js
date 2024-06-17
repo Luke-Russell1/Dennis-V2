@@ -62,7 +62,6 @@ class Game extends Phaser.Game {
           this.scene.start("instructions");
           break;
         case "startBlock":
-          console.log("Received initial state");
           this.scene.stop("instructions");
           // feeds initial state into the CollabScene constructor
           Object.assign(this.initialState, data.data);
