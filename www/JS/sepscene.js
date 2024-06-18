@@ -44,22 +44,40 @@ export default class SepScene extends Phaser.Scene {
 			switch (playerData.type) {
 				case "timer":
 					if (playerData.data === "start") {
-						console.log(playerData);
 						this.trialBegin = true;
 						this.breakRectangle.setAlpha(0);
 						this.breakText.setAlpha(0);
 						this.displayOrders();
+						this.trialTime = 45;
+						this.timerText.setText("Time: " + this.trialTime);
+						if (this.timer) {
+							this.timer.remove(false);
+						}
+						this.timer = this.time.addEvent({
+							delay: 1000,
+							callback: this.trialTimer,
+							callbackScope: this,
+							loop: true,
+						});
+						this.soupsWaitingText.setAlpha(1);
+
 					}
+
 					if (playerData.data === "end") {
 						this.trialBegin = false;
 						this.orderTextGroup.clear(true, true);
 						this.breakRectangle.setAlpha(1);
 						this.breakText.setAlpha(1);
 						this.state.trialNo += 0.5;
-            console.log(this.state.trialNo); 
+						if (this.timer) {
+							this.timer.remove(false);
+						}
+						this.soupsWaitingText.setAlpha(0);
+						console.log(this.state.trialNo);
 					}
 					break;
 				case "reset":
+					console.log("resetting");
 					this.state = playerData.data;
 					this.trialTime = 45;
 					// Reset player positions to initial positions
@@ -73,9 +91,6 @@ export default class SepScene extends Phaser.Scene {
 					this.resetPlayerAfterOrder();
 					this.updateOrderStatus(playerData.order);
 					this.updatePlayer(this.player, this.state.player1);
-
-					
-			        console.log(this.state.player1);
 					break;
 			}
 		};
@@ -182,6 +197,10 @@ export default class SepScene extends Phaser.Scene {
 		});
 		// add group so that they can be removed if needed
 		this.orderTextGroup = this.add.group();
+		this.soupsWaitingText = this.add.text(10, 50, "", {
+			fontSize: "18px",
+			fill: "#000",
+		});
 	}
 	update() {
 		// moves player
@@ -194,7 +213,7 @@ export default class SepScene extends Phaser.Scene {
 		);
 		this.movePlayer(400, this.keys, this.allowMovement, this.pauseMovement);
 		this.updateScore(this.state);
-		console.log(this.state.player1.callingOrder, this.state.player1.soupsReady, this.state.player1.currentlyServing);
+		this.updateSoupsWaitingText(this.state.player1.soupsReady);
 	}
 	displayOrders() {
 		/*
@@ -209,7 +228,7 @@ export default class SepScene extends Phaser.Scene {
 		for (let i = 0; i < this.state.orders.orderAmount; i++) {
 			let orderText = this.add.text(
 				10,
-				60 + i * 75,
+				100 + i * 75,
 				`Order In!\n Soups: ${this.state.orders.soups[i]}\n Price: \$${this.state.orders.price[i]}\n`,
 				{
 					fontSize: "18px",
@@ -227,6 +246,9 @@ export default class SepScene extends Phaser.Scene {
 		if (this.orderTextObjects[orderIndex]) {
 			this.orderTextObjects[orderIndex].setStyle({ fill: "#888" });
 		}
+	}
+	updateSoupsWaitingText(soupsWaiting) {
+		this.soupsWaitingText.setText("Soups Waiting: " + soupsWaiting);
 	}
 	movePlayer(speed, keys, allowMovement, pauseMovement) {
 		/*
@@ -316,7 +338,6 @@ export default class SepScene extends Phaser.Scene {
 			this.state.player1.soupsReady > 0 &&
 			!this.state.player1.currentlyServing
 		) {
-			
 			this.state.player1.currentlyServing = true;
 			this.ws.send(
 				JSON.stringify({
@@ -325,7 +346,6 @@ export default class SepScene extends Phaser.Scene {
 					data: this.state.player1,
 				})
 			);
-      console.log(this.state.player1);
 		}
 	}
 	resetPlayerAfterOrder() {
@@ -389,14 +409,6 @@ export default class SepScene extends Phaser.Scene {
 			}
 		}
 	}
-	figureOutPotDist(pots, player) {
-		for (let pot of this.state.pots) {
-			const distance = Math.sqrt(
-				Math.pow(this.state.player1.x - pot.x, 2) +
-					Math.pow(this.state.player1.y - pot.y, 2)
-			);
-		}
-	}
 	handlePotInteraction(pots, player) {
 		/*
         Calculates the distance between the player and the pots. If the player is close enough to the pot
@@ -410,7 +422,7 @@ export default class SepScene extends Phaser.Scene {
 			);
 			if (
 				player.interactionTile === "dish" &&
-				distance < 60 &&
+				distance < 50 &&
 				this.keys.interact.isDown &&
 				!player.currentlyServing
 			) {
